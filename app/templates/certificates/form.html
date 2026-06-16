@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{% if cert %}Editar solicitud{% else %}Nueva solicitud{% endif %} - Clara Certificados{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{% if cert %}Editar solicitud{% else %}Nueva solicitud de certificado{% endif %}</h1>
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+<form method="post" action="{{ form_action }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <h2 class="h6 text-muted mt-3">Datos del cliente</h2>
+    <div class="row">
+        <div class="col-md-6 mb-2">
+            <label class="form-label">Nombre completo</label>
+            <input class="form-control" name="cliente_nombre_completo" value="{{ cert.cliente_nombre_completo if cert else '' }}" required>
+        </div>
+        <div class="col-md-3 mb-2">
+            <label class="form-label">Tipo doc.</label>
+            <select class="form-select" name="cliente_tipo_documento">
+                {% for t in ["CC", "CE", "TI", "PAS", "RC"] %}
+                <option value="{{ t }}" {% if cert and cert.cliente_tipo_documento == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 mb-2">
+            <label class="form-label">Número doc.</label>
+            <input class="form-control" name="cliente_numero_documento" value="{{ cert.cliente_numero_documento if cert else '' }}" required>
+        </div>
+        <div class="col-md-4 mb-2">
+            <label class="form-label">Teléfono</label>
+            <input class="form-control" name="cliente_telefono" value="{{ cert.cliente_telefono if cert else '' }}" required>
+        </div>
+        <div class="col-md-4 mb-2">
+            <label class="form-label">Correo</label>
+            <input class="form-control" type="email" name="cliente_email" value="{{ cert.cliente_email if cert else '' }}" required>
+        </div>
+        <div class="col-md-4 mb-2">
+            <label class="form-label">Parentesco con el fallecido</label>
+            <input class="form-control" name="cliente_parentesco" value="{{ cert.cliente_parentesco if cert else '' }}" required>
+        </div>
+        <div class="col-md-6 mb-2">
+            <label class="form-label">Dirección</label>
+            <input class="form-control" name="cliente_direccion" value="{{ cert.cliente_direccion if cert else '' }}">
+        </div>
+        <div class="col-md-6 mb-2">
+            <label class="form-label">Ciudad</label>
+            <input class="form-control" name="cliente_ciudad" value="{{ cert.cliente_ciudad if cert else '' }}">
+        </div>
+    </div>
+
+    <h2 class="h6 text-muted mt-4">Datos del fallecido</h2>
+    <div class="row">
+        <div class="col-md-6 mb-2">
+            <label class="form-label">Nombre completo</label>
+            <input class="form-control" name="fallecido_nombre_completo" value="{{ cert.fallecido_nombre_completo if cert else '' }}" required>
+        </div>
+        <div class="col-md-3 mb-2">
+            <label class="form-label">Tipo doc.</label>
+            <select class="form-select" name="fallecido_tipo_documento">
+                {% for t in ["CC", "CE", "TI", "PAS", "RC"] %}
+                <option value="{{ t }}" {% if cert and cert.fallecido_tipo_documento == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 mb-2">
+            <label class="form-label">Número doc.</label>
+            <input class="form-control" name="fallecido_numero_documento" value="{{ cert.fallecido_numero_documento if cert else '' }}" required>
+        </div>
+        <div class="col-md-4 mb-2">
+            <label class="form-label">Fecha de nacimiento</label>
+            <input class="form-control" type="date" name="fallecido_fecha_nacimiento" value="{{ cert.fallecido_fecha_nacimiento if cert else '' }}">
+        </div>
+        <div class="col-md-4 mb-2">
+            <label class="form-label">Fecha de fallecimiento</label>
+            <input class="form-control" type="date" name="fallecido_fecha_fallecimiento" value="{{ cert.fallecido_fecha_fallecimiento if cert else '' }}" required>
+        </div>
+        <div class="col-md-4 mb-2">
+            <label class="form-label">Lugar de fallecimiento</label>
+            <input class="form-control" name="fallecido_lugar_fallecimiento" value="{{ cert.fallecido_lugar_fallecimiento if cert else '' }}">
+        </div>
+        <div class="col-md-6 mb-2">
+            <label class="form-label">Causa de fallecimiento</label>
+            <input class="form-control" name="fallecido_causa_fallecimiento" value="{{ cert.fallecido_causa_fallecimiento if cert else '' }}">
+        </div>
+        <div class="col-md-6 mb-2">
+            <label class="form-label">Número de acta de defunción</label>
+            <input class="form-control" name="fallecido_numero_acta_defuncion" value="{{ cert.fallecido_numero_acta_defuncion if cert else '' }}">
+        </div>
+    </div>
+
+    <h2 class="h6 text-muted mt-4">Otros datos</h2>
+    <div class="row">
+        <div class="col-md-6 mb-2">
+            <label class="form-label">Plan o póliza</label>
+            <input class="form-control" name="plan_o_poliza" value="{{ cert.plan_o_poliza if cert else '' }}">
+        </div>
+        <div class="col-12 mb-2">
+            <label class="form-label">Observaciones</label>
+            <textarea class="form-control" name="observaciones">{{ cert.observaciones if cert else '' }}</textarea>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-2">Guardar</button>
+    <a href="/certificates" class="btn btn-outline-secondary mt-2">Cancelar</a>
+</form>
+{% endblock %}

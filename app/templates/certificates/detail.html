@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Solicitud de certificado - Clara Certificados{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0">Solicitud de certificado</h1>
+    {% with status=cert.status %}{% include "certificates/_status_badge.html" %}{% endwith %}
+</div>
+
+{% if cert.status.value == "rejected" and cert.rejection_comment %}
+<div class="alert alert-danger">
+    <strong>Motivo del rechazo:</strong> {{ cert.rejection_comment }}
+</div>
+{% endif %}
+
+<h2 class="h6 text-muted mt-3">Datos del cliente</h2>
+<dl class="row">
+    <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">{{ cert.cliente_nombre_completo }}</dd>
+    <dt class="col-sm-3">Documento</dt><dd class="col-sm-9">{{ cert.cliente_tipo_documento }} {{ cert.cliente_numero_documento }}</dd>
+    <dt class="col-sm-3">Teléfono</dt><dd class="col-sm-9">{{ cert.cliente_telefono }}</dd>
+    <dt class="col-sm-3">Correo</dt><dd class="col-sm-9">{{ cert.cliente_email }}</dd>
+    <dt class="col-sm-3">Parentesco</dt><dd class="col-sm-9">{{ cert.cliente_parentesco }}</dd>
+    <dt class="col-sm-3">Dirección</dt><dd class="col-sm-9">{{ cert.cliente_direccion or "-" }}, {{ cert.cliente_ciudad or "-" }}</dd>
+</dl>
+
+<h2 class="h6 text-muted mt-3">Datos del fallecido</h2>
+<dl class="row">
+    <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">{{ cert.fallecido_nombre_completo }}</dd>
+    <dt class="col-sm-3">Documento</dt><dd class="col-sm-9">{{ cert.fallecido_tipo_documento }} {{ cert.fallecido_numero_documento }}</dd>
+    <dt class="col-sm-3">Fecha de nacimiento</dt><dd class="col-sm-9">{{ cert.fallecido_fecha_nacimiento or "-" }}</dd>
+    <dt class="col-sm-3">Fecha de fallecimiento</dt><dd class="col-sm-9">{{ cert.fallecido_fecha_fallecimiento }}</dd>
+    <dt class="col-sm-3">Lugar</dt><dd class="col-sm-9">{{ cert.fallecido_lugar_fallecimiento or "-" }}</dd>
+    <dt class="col-sm-3">Causa</dt><dd class="col-sm-9">{{ cert.fallecido_causa_fallecimiento or "-" }}</dd>
+    <dt class="col-sm-3">Acta de defunción</dt><dd class="col-sm-9">{{ cert.fallecido_numero_acta_defuncion or "-" }}</dd>
+</dl>
+
+<h2 class="h6 text-muted mt-3">Otros datos</h2>
+<dl class="row">
+    <dt class="col-sm-3">Plan o póliza</dt><dd class="col-sm-9">{{ cert.plan_o_poliza or "-" }}</dd>
+    <dt class="col-sm-3">Observaciones</dt><dd class="col-sm-9">{{ cert.observaciones or "-" }}</dd>
+</dl>
+
+<div class="d-flex gap-2 mt-3">
+    {% if can_edit %}
+    <a href="/certificates/{{ cert.id }}/edit" class="btn btn-outline-secondary">Editar</a>
+    <form method="post" action="/certificates/{{ cert.id }}/submit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-primary">Enviar a revisión</button>
+    </form>
+    {% endif %}
+</div>
+
+{% if can_review %}
+<hr class="my-4">
+<h2 class="h6 text-muted">Revisión</h2>
+<div class="d-flex gap-2">
+    <form method="post" action="/certificates/{{ cert.id }}/approve">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-success" data-confirm="¿Aprobar esta solicitud?">Aprobar</button>
+    </form>
+    <form method="post" action="/certificates/{{ cert.id }}/reject" class="d-flex gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input class="form-control" name="rejection_comment" placeholder="Motivo del rechazo" required>
+        <button type="submit" class="btn btn-outline-danger">Rechazar</button>
+    </form>
+</div>
+{% endif %}
+
+{% if cert.status.value == "approved" %}
+<hr class="my-4">
+<a href="/certificates/{{ cert.id }}/pdf" class="btn btn-outline-primary">Descargar PDF</a>
+{% if current_user.role.value in ("revisor", "admin") %}
+<form method="post" action="/certificates/{{ cert.id }}/resend-email" class="d-inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn btn-outline-secondary">Reenviar por correo</button>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

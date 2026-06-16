@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Inicio - Clara Certificados{% endblock %}
+{% block content %}
+<h1 class="h4">Bienvenido, {{ current_user.full_name }}</h1>
+<p class="text-muted">Rol: {{ current_user.role.value }}</p>
+{% endblock %}

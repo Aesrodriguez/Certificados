@@ -1,0 +1,2 @@
+{% set badge_class = {"draft": "secondary", "pending": "warning", "approved": "success", "rejected": "danger"} %}
+<span class="badge text-bg-{{ badge_class.get(status.value, 'secondary') }}">{{ status.value }}</span>

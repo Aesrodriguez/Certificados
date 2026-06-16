@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Auditoría - Clara Certificados{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Registro de auditoría</h1>
+<p class="text-muted">Últimas 200 acciones registradas en el sistema.</p>
+<table class="table table-sm table-bordered">
+    <thead>
+        <tr>
+            <th>Fecha</th>
+            <th>Actor</th>
+            <th>Acción</th>
+            <th>Entidad</th>
+            <th>IP</th>
+            <th>Detalle</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr>
+            <td>{{ log.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+            <td>{{ log.actor.email if log.actor else "-" }}</td>
+            <td>{{ log.action.value }}</td>
+            <td>{{ log.entity_type or "-" }}{% if log.entity_id %} ({{ log.entity_id }}){% endif %}</td>
+            <td>{{ log.ip_address or "-" }}</td>
+            <td>{{ log.metadata_json or "-" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-muted text-center">No hay registros todavía.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

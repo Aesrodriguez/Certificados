@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Usuarios - Clara Certificados{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0">Usuarios</h1>
+    <a href="/admin/users/new" class="btn btn-primary btn-sm">Nuevo usuario</a>
+</div>
+<table class="table table-sm table-bordered align-middle">
+    <thead>
+        <tr>
+            <th>Correo</th>
+            <th>Nombre</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in users %}
+        <tr>
+            <td>{{ u.email }}</td>
+            <td>{{ u.full_name }}</td>
+            <td>
+                {% if u.id != current_user.id %}
+                <form method="post" action="/admin/users/{{ u.id }}/role" class="d-flex gap-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <select name="role" class="form-select form-select-sm" onchange="this.form.requestSubmit()">
+                        {% for r in roles %}
+                        <option value="{{ r.value }}" {% if r == u.role %}selected{% endif %}>{{ r.value }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                {% else %}
+                {{ u.role.value }}
+                {% endif %}
+            </td>
+            <td>
+                {% if u.is_active %}
+                <span class="badge text-bg-success">activo</span>
+                {% else %}
+                <span class="badge text-bg-secondary">desactivado</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if u.id != current_user.id %}
+                {% if u.is_active %}
+                <form method="post" action="/admin/users/{{ u.id }}/disable" data-confirm="¿Desactivar a {{ u.email }}?">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">Desactivar</button>
+                </form>
+                {% else %}
+                <form method="post" action="/admin/users/{{ u.id }}/enable">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-outline-success btn-sm">Activar</button>
+                </form>
+                {% endif %}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
