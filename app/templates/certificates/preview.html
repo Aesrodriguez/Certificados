@@ -245,8 +245,9 @@
 
     <div class="cert-content">
 
-        {% if cert.numero_certificado %}
-        <div class="cert-number">{{ cert.numero_certificado }}</div>
+        {% set codigo_cert = cert.numero_aviso or cert.numero_certificado %}
+        {% if codigo_cert %}
+        <div class="cert-number">{{ codigo_cert }}</div>
         {% endif %}
 
         <div class="cert-certificamos">CERTIFICAMOS</div>
@@ -265,7 +266,31 @@
             {% else %}-{% endif %}.
         </div>
 
-        {% if cert.nombre_servicio or cert.valor_total %}
+        {% if lineas_servicio %}
+        {# Desglose completo de servicios calculado por porcentajes fijos #}
+        <table class="svc-table">
+            <thead>
+                <tr>
+                    <th>SERVICIOS UTILIZADOS</th>
+                    <th class="val-col">VALOR</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for nombre, valor in lineas_servicio %}
+                <tr>
+                    <td>{{ nombre | upper }}{{ "." * [1, 85 - nombre|length]|max }}</td>
+                    <td class="val-col">$ {{ "{:,}".format(valor).replace(",", ".") }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <hr class="svc-rule">
+        <div class="cert-total">
+            TOTAL: {{ total_palabras }} PESOS&nbsp;M/L ($ {{ "{:,}".format(cert.valor_total).replace(",", ".") }})
+        </div>
+
+        {% elif cert.nombre_servicio or cert.valor_total %}
+        {# Tabla simple cuando no hay desglose disponible #}
         <table class="svc-table">
             <thead>
                 <tr>
@@ -275,7 +300,7 @@
             </thead>
             <tbody>
                 <tr>
-                    <td>{% if cert.nombre_servicio %}{{ cert.nombre_servicio | upper }}{% endif %}{% if cert.nombre_servicio %}{{ "." * [1, 65 - cert.nombre_servicio|length]|max }}{% endif %}</td>
+                    <td>{% if cert.nombre_servicio %}{{ cert.nombre_servicio | upper }}{{ "." * [1, 65 - cert.nombre_servicio|length]|max }}{% endif %}</td>
                     <td class="val-col">
                         {% if cert.valor_total %}$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}{% else %}-{% endif %}
                     </td>
@@ -286,10 +311,9 @@
         <div class="svc-desc">({{ cert.descripcion_servicio }})</div>
         {% endif %}
         <hr class="svc-rule">
-
         {% if cert.valor_total %}
         <div class="cert-total">
-            TOTAL: {{ total_palabras }} PESOS&nbsp;M/L (${{ "{:,}".format(cert.valor_total).replace(",", ".") }})
+            TOTAL: {{ total_palabras }} PESOS&nbsp;M/L ($ {{ "{:,}".format(cert.valor_total).replace(",", ".") }})
         </div>
         {% endif %}
         {% endif %}

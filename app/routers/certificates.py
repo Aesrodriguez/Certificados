@@ -18,7 +18,7 @@ from app.models.user import RoleEnum
 from app.schemas.certificate_request import CertificateRequestIn
 from app.services import certificate_service, pdf_service
 from app.services.audit_service import log_action
-from app.services.pdf_service import _numero_a_palabras, _MESES
+from app.services.pdf_service import _numero_a_palabras, _MESES, get_lineas_servicio
 
 router = APIRouter(
     prefix="/certificates",
@@ -305,6 +305,11 @@ async def preview_certificate(
 
     issue_date_obj = cert.reviewed_at.date() if cert.reviewed_at else date.today()
     total_palabras = _numero_a_palabras(cert.valor_total) if cert.valor_total else ""
+    lineas_servicio = (
+        get_lineas_servicio(cert.empresa, cert.nombre_servicio, cert.valor_total)
+        if cert.valor_total
+        else []
+    )
 
     fallecimiento_obj = cert.fallecido_fecha_fallecimiento
     if fallecimiento_obj:
@@ -330,6 +335,7 @@ async def preview_certificate(
             "issue_year": issue_date_obj.year,
             "issue_date": issue_date_obj.strftime("%d/%m/%Y"),
             "issue_fallecimiento": issue_fallecimiento,
+            "lineas_servicio": lineas_servicio,
         },
     )
 

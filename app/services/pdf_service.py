@@ -124,6 +124,115 @@ def _numero_a_palabras(n: int) -> str:
     return " ".join(parts)
 
 
+# ── Desglose de servicios por empresa + producto ──────────────────────────────
+# Cada entrada: (nombre_del_servicio, porcentaje_decimal)
+# Los porcentajes suman 1.0 en cada grupo.
+
+_REC_STD = [  # RECORDAR — Servicio Funerario estándar
+    ("Traslado del cuerpo dentro del perímetro urbano", 0.04),
+    ("Preparación normal del cuerpo", 0.09),
+    ("Suministro del féretro según la Alternativa seleccionada", 0.41),
+    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.03),
+    ("Celebración religiosa (si el cliente lo desea)-(Tramites eclesiasticos)", 0.02),
+    ("Cafeteria (Bebidas calientes en sala)", 0.05),
+    ("Carteles Virtuales", 0.01),
+    ("Trámites civiles y legales ante autoridad competente (Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
+    ("Velación por 24 horas", 0.31),
+]
+
+_REC_TRANSP = [  # RECORDAR — Solo transporte, velación y restos
+    ("Traslado terrestre de la persona fallecida al parque cementerio Jardines de Eternidad sede norte", 0.30),
+    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.22),
+    ("Cafeteria (Bebidas calientes en sala)", 0.05),
+    ("Carteles Virtuales", 0.01),
+    ("Velación por 24 horas", 0.42),
+]
+
+_REC_TRANSP_MISA = [  # RECORDAR — Solo transporte, velación, misa y restos
+    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.50),
+    ("Celebración religiosa (si el cliente lo desea)-(Tramites eclesiasticos)", 0.04),
+    ("Cafeteria (Bebidas calientes en sala)", 0.05),
+    ("Carteles Virtuales", 0.01),
+    ("Velación por 24 horas", 0.40),
+]
+
+def _pyf_std(cofre_nombre: str) -> list:
+    """Plantilla estándar PYF (Gran Extra / Estilo J / K…), solo cambia el cofre."""
+    return [
+        ("Recogida del cuerpo dentro del perímetro urbano", 0.04),
+        ("Preparación normal del cuerpo", 0.09),
+        (cofre_nombre, 0.41),
+        ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.03),
+        ("Celebración religiosa (si el cliente lo desea)-(Tramites eclesiasticos)", 0.02),
+        ("Cafeteria (Bebidas calientes en sala)", 0.05),
+        ("Carteles Virtuales", 0.01),
+        ("Trámites civiles y legales ante autoridad competente (Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
+        ("Velación normal (24 horas)", 0.31),
+    ]
+
+_PYF_CREMACION = [  # PYF — Cremación integrada
+    ("Recogida del cuerpo dentro del perímetro urbano", 0.04),
+    ("Preparación normal del cuerpo", 0.09),
+    ('Cofre funebre "L" o el equivalente a talla y peso del fallecido', 0.41),
+    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.03),
+    ("Celebración religiosa (si el cliente lo desea)-(Tramites eclesiasticos)", 0.02),
+    ("Cafeteria (Bebidas calientes en sala)", 0.05),
+    ("Carteles Virtuales", 0.01),
+    ("Trámites civiles y legales ante autoridad competente (Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
+    ("Velación normal (24 horas)", 0.21),
+    ("Reducción del cuerpo a Cenizas por medio del calor", 0.10),
+]
+
+# Tabla de búsqueda: (fragmento_empresa, fragmento_servicio) → desglose
+# La empresa y el nombre de servicio se comparan en minúsculas (in).
+_BREAKDOWN_TABLE: list[tuple[str, str, list]] = [
+    # RECORDAR
+    ("recordar", "transporte velacion misa", _REC_TRANSP_MISA),
+    ("recordar", "transporte velacion",      _REC_TRANSP),
+    ("recordar", "",                          _REC_STD),   # catch-all RECORDAR
+    # PARQUES Y FUNERARIAS
+    ("parques",  "cremacion",    _PYF_CREMACION),
+    ("parques",  "gran extra",   _pyf_std('Cofre funebre "Gran Extra" o el equivalente a talla y peso del fallecido')),
+    ("parques",  "estilo j",     _pyf_std('Cofre funebre "J" o el equivalente a talla y peso del fallecido')),
+    ("parques",  "estilo k",     _pyf_std('Cofre funebre "K" o el equivalente a talla y peso del fallecido')),
+    ("parques",  "estilo l",     _pyf_std('Cofre funebre "L" o el equivalente a talla y peso del fallecido')),
+    ("parques",  "",             _pyf_std('Cofre funebre según la Alternativa seleccionada')),  # catch-all PYF
+]
+
+
+def get_lineas_servicio(
+    empresa: str | None,
+    nombre_servicio: str | None,
+    valor_total: int,
+) -> list[tuple[str, int]]:
+    """Devuelve [(nombre, valor_pesos), …] con el desglose del servicio.
+
+    Busca en _BREAKDOWN_TABLE la primera entrada cuyo fragmento_empresa esté
+    contenido en la empresa y cuyo fragmento_servicio esté contenido en el
+    nombre del servicio (ambos en minúsculas). Ajusta el redondeo para que
+    la suma sea exactamente igual a valor_total.
+    """
+    emp = (empresa or "").lower()
+    svc = (nombre_servicio or "").lower()
+
+    plantilla = _REC_STD  # default
+    for frag_emp, frag_svc, lineas in _BREAKDOWN_TABLE:
+        if frag_emp in emp and frag_svc in svc:
+            plantilla = lineas
+            break
+
+    calculadas = [(nom, round(valor_total * pct)) for nom, pct in plantilla]
+
+    # Corrección de redondeo: ajusta el ítem de mayor valor
+    diff = valor_total - sum(v for _, v in calculadas)
+    if diff:
+        idx = max(range(len(calculadas)), key=lambda i: calculadas[i][1])
+        nom, val = calculadas[idx]
+        calculadas[idx] = (nom, val + diff)
+
+    return calculadas
+
+
 def _draw_letterhead(canvas, doc):
     """Draw the GRUPO RECORDAR letterhead as full-page background on every page."""
     canvas.saveState()
@@ -164,9 +273,10 @@ def build_certificate_pdf(cert: CertificateRequest) -> bytes:
 
     story: list = []
 
-    # ── Certificate reference number ──────────────────────────────────────────
-    if cert.numero_certificado:
-        story.append(Paragraph(cert.numero_certificado, _cert_num))
+    # ── Certificate reference number (aviso o consecutivo) ───────────────────
+    codigo = cert.numero_aviso or cert.numero_certificado
+    if codigo:
+        story.append(Paragraph(str(codigo), _cert_num))
 
     # ── CERTIFICAMOS heading ──────────────────────────────────────────────────
     story.append(Paragraph("CERTIFICAMOS", _heading))
@@ -191,9 +301,6 @@ def build_certificate_pdf(cert: CertificateRequest) -> bytes:
         val_col = 4 * cm
         svc_col = content_width - val_col
 
-        valor_str = f"$ {_formato_cop(cert.valor_total)}" if cert.valor_total else "-"
-        svc_name = (cert.nombre_servicio or "").upper()
-
         # Header row
         header = Table(
             [[Paragraph("SERVICIOS UTILIZADOS", _svc_bold),
@@ -209,19 +316,34 @@ def build_certificate_pdf(cert: CertificateRequest) -> bytes:
         ]))
         story.append(header)
 
-        # Service row — dotted leader between name and price
-        dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(svc_name)))
-        svc_row = Table(
-            [[Paragraph(f"{svc_name}{dots}", _body),
-              Paragraph(valor_str, _svc_r)]],
-            colWidths=[svc_col, val_col],
-        )
-        svc_row.setStyle(TableStyle([
+        row_style = TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("TOPPADDING", (0, 0), (-1, -1), 2),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ]))
-        story.append(svc_row)
+        ])
+
+        if cert.valor_total:
+            # Desglose completo por porcentajes
+            lineas = get_lineas_servicio(cert.empresa, cert.nombre_servicio, cert.valor_total)
+            for nombre, valor in lineas:
+                dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(nombre)))
+                row = Table(
+                    [[Paragraph(f"{nombre.upper()}{dots}", _body),
+                      Paragraph(f"$ {_formato_cop(valor)}", _svc_r)]],
+                    colWidths=[svc_col, val_col],
+                )
+                row.setStyle(row_style)
+                story.append(row)
+        else:
+            # Tabla simple cuando no hay valor total
+            svc_name = (cert.nombre_servicio or "").upper()
+            dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(svc_name)))
+            row = Table(
+                [[Paragraph(f"{svc_name}{dots}", _body), Paragraph("-", _svc_r)]],
+                colWidths=[svc_col, val_col],
+            )
+            row.setStyle(row_style)
+            story.append(row)
 
         if cert.descripcion_servicio:
             story.append(Paragraph(f"({cert.descripcion_servicio})", _body))
