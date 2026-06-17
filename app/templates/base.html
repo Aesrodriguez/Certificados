@@ -5,35 +5,140 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Clara Certificados{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="/static/css/custom.css" rel="stylesheet">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">Clara Certificados</a>
-            {% if current_user %}
-            <div class="d-flex align-items-center gap-3">
-                <a href="/certificates" class="text-light text-decoration-none">Certificados</a>
-                {% if current_user.role.value == "admin" %}
-                <a href="/admin/users" class="text-light text-decoration-none">Usuarios</a>
-                <a href="/admin/audit-log" class="text-light text-decoration-none">Auditoría</a>
+
+{% if current_user is defined and current_user %}
+
+{# ── Top bar ──────────────────────────────────────────────────────────── #}
+<header class="app-topbar">
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menú">
+        <i class="bi bi-list"></i>
+    </button>
+    <a href="/" class="app-brand">
+        <span class="brand-logo">🌿</span>
+        Clara Certificados
+    </a>
+    <div class="app-topbar-right">
+        <span class="user-name d-none d-sm-inline">{{ current_user.full_name }}</span>
+        <span class="role-pill role-{{ current_user.role.value }}">{{ current_user.role.value }}</span>
+        <form method="post" action="/logout" class="m-0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn-logout">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </button>
+        </form>
+    </div>
+</header>
+
+{# ── App layout ───────────────────────────────────────────────────────── #}
+<div class="app-layout">
+
+    {# ── Sidebar ───────────────────────────────────────────────────────── #}
+    <aside class="app-sidebar" id="appSidebar">
+        <nav class="sidebar-nav">
+
+            {# -- Certificados section -- #}
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Certificados</div>
+
+                {% if current_user.role.value in ("asesor", "admin") %}
+                <a href="/certificates/new"
+                   class="sidebar-link {% if request.url.path == '/certificates/new' %}active{% endif %}">
+                    <i class="bi bi-plus-circle-fill"></i>
+                    Nueva solicitud
+                </a>
                 {% endif %}
-                <span class="navbar-text text-light">{{ current_user.full_name }} ({{ current_user.role.value }})</span>
-                <form method="post" action="/logout" class="m-0">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-outline-light btn-sm">Salir</button>
-                </form>
+
+                <a href="/certificates"
+                   class="sidebar-link {% if request.url.path == '/certificates' %}active{% endif %}">
+                    <i class="bi bi-file-earmark-text"></i>
+                    {% if current_user.role.value == "asesor" %}Mis certificados
+                    {% else %}Todos los certificados{% endif %}
+                </a>
+
+                {% if current_user.role.value in ("revisor", "admin") %}
+                <a href="/certificates"
+                   class="sidebar-link {% if request.url.path.startswith('/certificates/') and 'new' not in request.url.path and 'edit' not in request.url.path %}active{% endif %}">
+                    <i class="bi bi-clock-history"></i>
+                    Pendientes de revisión
+                </a>
+                {% endif %}
+            </div>
+
+            {# -- Admin section -- #}
+            {% if current_user.role.value == "admin" %}
+            <hr class="sidebar-divider">
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Administración</div>
+                <a href="/admin/users"
+                   class="sidebar-link {% if request.url.path.startswith('/admin/users') %}active{% endif %}">
+                    <i class="bi bi-people-fill"></i>
+                    Usuarios
+                </a>
+                <a href="/admin/audit-log"
+                   class="sidebar-link {% if request.url.path.startswith('/admin/audit') %}active{% endif %}">
+                    <i class="bi bi-journal-bookmark-fill"></i>
+                    Auditoría
+                </a>
             </div>
             {% endif %}
-        </div>
-    </nav>
-    <main class="container py-4">
+
+        </nav>
+        <div class="sidebar-footer">Clara Certificados &copy; 2026</div>
+    </aside>
+
+    {# Mobile overlay #}
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    {# ── Main content ──────────────────────────────────────────────────── #}
+    <main class="app-content">
         {% if request.query_params.get('msg') %}
-        <div class="alert alert-info">{{ request.query_params.get('msg') }}</div>
+        <div class="alert alert-info alert-dismissible fade show app-alert" role="alert">
+            {{ request.query_params.get('msg') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
         {% endif %}
         {% block content %}{% endblock %}
     </main>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/confirm-actions.js"></script>
+
+</div>{# end .app-layout #}
+
+{% else %}
+
+{# ── Auth pages (no sidebar) ─────────────────────────────────────────── #}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-logo">
+            <div class="auth-logo-icon">🌿</div>
+            <div class="auth-title">Clara Certificados</div>
+            <div class="auth-subtitle">{% block auth_subtitle %}{% endblock %}</div>
+        </div>
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/confirm-actions.js"></script>
+<script>
+    // Mobile sidebar toggle
+    const toggle   = document.getElementById('sidebarToggle');
+    const sidebar  = document.getElementById('appSidebar');
+    const overlay  = document.getElementById('sidebarOverlay');
+    if (toggle && sidebar && overlay) {
+        toggle.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        });
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+        });
+    }
+</script>
 </body>
 </html>
