@@ -1,63 +1,122 @@
 {% extends "base.html" %}
 {% block title %}Usuarios - Clara Certificados{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 m-0">Usuarios</h1>
-    <a href="/admin/users/new" class="btn btn-primary btn-sm">Nuevo usuario</a>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Usuarios</h1>
+    <p class="page-subtitle">{{ users|length }} usuario{% if users|length != 1 %}s{% endif %} registrado{% if users|length != 1 %}s{% endif %}</p>
+  </div>
+  <a href="/admin/users/new" class="btn btn-primary">
+    <i class="bi bi-person-plus me-2"></i>Nuevo usuario
+  </a>
 </div>
-<table class="table table-sm table-bordered align-middle">
-    <thead>
+
+{% if msg %}
+<div class="alert alert-success d-flex align-items-center gap-2 mb-3" style="border-radius:8px;">
+  <i class="bi bi-check-circle-fill"></i><span>{{ msg }}</span>
+</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:8px;">
+  <i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table mb-0">
+      <thead>
         <tr>
-            <th>Correo</th>
-            <th>Nombre</th>
-            <th>Rol</th>
-            <th>Estado</th>
-            <th>Acciones</th>
+          <th>Usuario</th>
+          <th class="d-none d-md-table-cell">Correo</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th style="width:180px; text-align:right;">Acciones</th>
         </tr>
-    </thead>
-    <tbody>
+      </thead>
+      <tbody>
         {% for u in users %}
         <tr>
-            <td>{{ u.email }}</td>
-            <td>{{ u.full_name }}</td>
-            <td>
-                {% if u.id != current_user.id %}
-                <form method="post" action="/admin/users/{{ u.id }}/role" class="d-flex gap-1">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <select name="role" class="form-select form-select-sm" onchange="this.form.requestSubmit()">
-                        {% for r in roles %}
-                        <option value="{{ r.value }}" {% if r == u.role %}selected{% endif %}>{{ r.value }}</option>
-                        {% endfor %}
-                    </select>
-                </form>
-                {% else %}
-                {{ u.role.value }}
-                {% endif %}
-            </td>
-            <td>
-                {% if u.is_active %}
-                <span class="badge text-bg-success">activo</span>
-                {% else %}
-                <span class="badge text-bg-secondary">desactivado</span>
-                {% endif %}
-            </td>
-            <td>
-                {% if u.id != current_user.id %}
-                {% if u.is_active %}
-                <form method="post" action="/admin/users/{{ u.id }}/disable" data-confirm="¿Desactivar a {{ u.email }}?">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-outline-danger btn-sm">Desactivar</button>
-                </form>
-                {% else %}
-                <form method="post" action="/admin/users/{{ u.id }}/enable">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-outline-success btn-sm">Activar</button>
-                </form>
-                {% endif %}
-                {% endif %}
-            </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="avatar-initials" style="background:{% if u.role.value == 'admin' %}#7c3aed{% elif u.role.value == 'revisor' %}#0891b2{% else %}#0d6efd{% endif %};">
+                {{ u.full_name[:2].upper() }}
+              </span>
+              <div>
+                <div class="fw-semibold" style="font-size:13.5px;">{{ u.full_name }}</div>
+                <div class="d-md-none" style="font-size:11px; color:var(--c-muted);">{{ u.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="d-none d-md-table-cell" style="font-size:13px; color:var(--c-muted);">{{ u.email }}</td>
+          <td>
+            <span class="badge-status" style="
+              {% if u.role.value == 'admin' %}background:#f3e8ff; color:#7c3aed;
+              {% elif u.role.value == 'revisor' %}background:#e0f2fe; color:#0369a1;
+              {% else %}background:#dbeafe; color:#1d4ed8;{% endif %}
+              padding:3px 10px; border-radius:12px; font-size:11.5px; font-weight:600; white-space:nowrap;">
+              {{ {"admin":"Admin","asesor":"Asesor","revisor":"Revisor"}[u.role.value] or u.role.value }}
+            </span>
+          </td>
+          <td>
+            {% if u.is_active %}
+            <span class="badge-status badge-approved">Activo</span>
+            {% else %}
+            <span class="badge-status badge-rejected">Inactivo</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="d-flex gap-1 justify-content-end">
+
+              {# Editar #}
+              <a href="/admin/users/{{ u.id }}/edit"
+                 class="btn btn-outline-primary btn-sm"
+                 title="Editar">
+                <i class="bi bi-pencil"></i>
+              </a>
+
+              {% if u.id != current_user.id %}
+
+              {# Activar / Desactivar #}
+              {% if u.is_active %}
+              <form method="post" action="/admin/users/{{ u.id }}/disable"
+                    data-confirm="¿Desactivar a {{ u.full_name }}? Cerrará todas sus sesiones activas.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-outline-warning btn-sm" title="Desactivar">
+                  <i class="bi bi-person-x"></i>
+                </button>
+              </form>
+              {% else %}
+              <form method="post" action="/admin/users/{{ u.id }}/enable">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-outline-success btn-sm" title="Activar">
+                  <i class="bi bi-person-check"></i>
+                </button>
+              </form>
+              {% endif %}
+
+              {# Eliminar #}
+              <form method="post" action="/admin/users/{{ u.id }}/delete"
+                    data-confirm="¿Eliminar permanentemente a {{ u.full_name }}? Esta acción no se puede deshacer.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
+                  <i class="bi bi-trash3"></i>
+                </button>
+              </form>
+
+              {% else %}
+              <span class="text-muted" style="font-size:11.5px; align-self:center; padding-right:4px;">Tú</span>
+              {% endif %}
+
+            </div>
+          </td>
         </tr>
         {% endfor %}
-    </tbody>
-</table>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 {% endblock %}

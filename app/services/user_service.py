@@ -1,10 +1,11 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
 from app.models.audit_log import AuditActionEnum
+from app.models.certificate_request import CertificateRequest
 from app.models.user import RoleEnum, User
 from app.services.audit_service import log_action
 from app.services.auth_service import revoke_all_sessions_for_user
@@ -53,6 +54,88 @@ async def create_user(
     )
     await db.commit()
     return user
+
+
+async def update_user(
+    db: AsyncSession,
+    *,
+    actor: User,
+    target: User,
+    full_name: str,
+    email: str,
+    role: RoleEnum,
+    password: str | None,
+    ip_address: str | None,
+) -> None:
+    if email != target.email:
+        conflict = await db.execute(
+            select(User).where(User.email == email, User.id != target.id)
+        )
+        if conflict.scalar_one_or_none() is not None:
+            raise UserServiceError(f"Ya existe otro usuario con el correo {email}.")
+
+    changes: dict = {}
+    if target.full_name != full_name:
+        changes["full_name"] = {"old": target.full_name, "new": full_name}
+        target.full_name = full_name
+    if target.email != email:
+        changes["email"] = {"old": target.email, "new": email}
+        target.email = email
+    if target.role != role:
+        changes["role"] = {"old": target.role.value, "new": role.value}
+        target.role = role
+    if password:
+        target.hashed_password = hash_password(password)
+        changes["password"] = "changed"
+
+    await log_action(
+        db,
+        actor_user_id=actor.id,
+        action=AuditActionEnum.USER_UPDATED,
+        entity_type="user",
+        entity_id=target.id,
+        ip_address=ip_address,
+        metadata=changes,
+    )
+    await db.commit()
+
+
+async def delete_user(
+    db: AsyncSession,
+    *,
+    actor: User,
+    target: User,
+    ip_address: str | None,
+) -> None:
+    count_result = await db.execute(
+        select(func.count()).where(
+            or_(
+                CertificateRequest.asesor_id == target.id,
+                CertificateRequest.revisor_id == target.id,
+            )
+        )
+    )
+    cert_count = count_result.scalar_one()
+    if cert_count > 0:
+        raise UserServiceError(
+            f"No se puede eliminar: el usuario tiene {cert_count} solicitud(es) "
+            "de certificado asociadas. Desactívalo en cambio."
+        )
+
+    await revoke_all_sessions_for_user(db, target.id)
+
+    await log_action(
+        db,
+        actor_user_id=actor.id,
+        action=AuditActionEnum.USER_DELETED,
+        entity_type="user",
+        entity_id=target.id,
+        ip_address=ip_address,
+        metadata={"email": target.email, "role": target.role.value},
+    )
+    await db.flush()
+    await db.delete(target)
+    await db.commit()
 
 
 async def set_user_role(

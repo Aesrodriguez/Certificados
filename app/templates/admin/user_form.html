@@ -1,37 +1,94 @@
 {% extends "base.html" %}
-{% block title %}Nuevo usuario - Clara Certificados{% endblock %}
+{% block title %}{% if user_obj %}Editar usuario{% else %}Nuevo usuario{% endif %} - Clara Certificados{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <h1 class="h4 mb-3">Nuevo usuario</h1>
-        {% if error %}
-        <div class="alert alert-danger">{{ error }}</div>
-        {% endif %}
-        <form method="post" action="/admin/users">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <div class="mb-3">
-                <label class="form-label" for="full_name">Nombre completo</label>
-                <input class="form-control" type="text" id="full_name" name="full_name" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="email">Correo</label>
-                <input class="form-control" type="email" id="email" name="email" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="password">Contraseña temporal</label>
-                <input class="form-control" type="password" id="password" name="password" minlength="10" required>
-                <div class="form-text">Mínimo 10 caracteres.</div>
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="role">Rol</label>
-                <select class="form-select" id="role" name="role" required>
-                    {% for r in roles %}
-                    <option value="{{ r.value }}">{{ r.value }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary">Crear usuario</button>
-        </form>
-    </div>
+
+{% set editing = user_obj is not none %}
+{% set form_action = "/admin/users/" ~ user_obj.id ~ "/edit" if editing else "/admin/users" %}
+{% set page_title  = "Editar usuario" if editing else "Nuevo usuario" %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ page_title }}</h1>
+    <p class="page-subtitle">
+      {% if editing %}Modificar datos de {{ user_obj.full_name }}{% else %}Agregar un nuevo miembro al equipo{% endif %}
+    </p>
+  </div>
+  <a href="/admin/users" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Volver
+  </a>
 </div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body p-4">
+
+        {% if error %}
+        <div class="alert alert-danger d-flex align-items-center gap-2 mb-4" style="border-radius:8px;">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{{ form_action }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="full_name">Nombre completo</label>
+            <input class="form-control" type="text" id="full_name" name="full_name"
+                   value="{{ user_obj.full_name if editing else '' }}" required
+                   placeholder="Ej: María García">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="email">Correo electrónico</label>
+            <input class="form-control" type="email" id="email" name="email"
+                   value="{{ user_obj.email if editing else '' }}" required
+                   placeholder="correo@empresa.com">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="role">Rol</label>
+            <select class="form-select" id="role" name="role" required
+                    {% if editing and user_obj.id == current_user.id %}disabled{% endif %}>
+              {% for r in roles %}
+              <option value="{{ r.value }}"
+                {% if editing and r == user_obj.role %}selected
+                {% elif not editing and r.value == "asesor" %}selected
+                {% endif %}>
+                {{ {"admin":"Administrador","asesor":"Asesor","revisor":"Revisor"}[r.value] or r.value }}
+              </option>
+              {% endfor %}
+            </select>
+            {% if editing and user_obj.id == current_user.id %}
+            <input type="hidden" name="role" value="{{ user_obj.role.value }}">
+            <div class="form-text">No puedes cambiar tu propio rol.</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold" for="password">
+              {% if editing %}Nueva contraseña <span class="text-muted fw-normal">(dejar en blanco para no cambiar)</span>
+              {% else %}Contraseña temporal{% endif %}
+            </label>
+            <input class="form-control" type="password" id="password" name="password"
+                   {% if not editing %}minlength="10" required{% endif %}
+                   placeholder="{% if editing %}Nueva contraseña (mín. 10 caracteres){% else %}Mín. 10 caracteres{% endif %}">
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-{% if editing %}check-circle{% else %}person-plus{% endif %} me-1"></i>
+              {% if editing %}Guardar cambios{% else %}Crear usuario{% endif %}
+            </button>
+            <a href="/admin/users" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
