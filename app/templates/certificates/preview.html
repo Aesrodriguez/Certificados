@@ -3,234 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vista previa — {{ cert.numero_certificado or cert.id }}</title>
+    <title>Certificado — {{ cert.numero_certificado or "" }}</title>
     <style>
-        /* Print-ready certificate preview */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
             font-family: 'Times New Roman', Times, serif;
             font-size: 11pt;
+            background: #e8e8e8;
             color: #000;
-            background: #f0f0f0;
         }
-        .page {
-            background: #fff;
-            width: 21cm;
-            min-height: 27cm;
-            margin: 1cm auto;
-            padding: 2.5cm 3cm;
-            box-shadow: 0 2px 10px rgba(0,0,0,.2);
-        }
-        /* ── Header ── */
-        .cert-header {
-            text-align: center;
-            border-bottom: 2px solid #000;
-            padding-bottom: 8px;
-            margin-bottom: 12px;
-        }
-        .cert-empresa {
-            font-size: 20pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .cert-subtitulo {
-            font-size: 9pt;
-            color: #555;
-            margin-top: 2px;
-        }
-        .cert-numero {
-            text-align: right;
-            font-size: 9pt;
-            color: #555;
-            margin-bottom: 6px;
-        }
-        /* ── Heading ── */
-        .cert-certificamos {
-            font-size: 14pt;
-            font-weight: bold;
-            margin: 14px 0 8px;
-            text-transform: uppercase;
-        }
-        .cert-body {
-            line-height: 1.7;
-            text-align: justify;
-            margin-bottom: 16px;
-        }
-        /* ── Services ── */
-        .services-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 10px 0 4px;
-        }
-        .services-table th {
-            border-top: 1px solid #000;
-            border-bottom: 1px solid #000;
-            padding: 4px 0;
-            font-size: 10pt;
-            font-weight: bold;
-        }
-        .services-table td {
-            padding: 4px 0;
-            font-size: 10pt;
-        }
-        .services-table .valor-col { text-align: right; }
-        .services-table .svc-desc {
-            font-size: 9pt;
-            color: #333;
-            padding-left: 8px;
-        }
-        .services-divider { border: none; border-top: 1px solid #000; margin: 4px 0; }
-        .total-line {
-            font-weight: bold;
-            font-size: 10pt;
-            margin: 6px 0 10px;
-        }
-        /* ── IVA & Footer ── */
-        .iva-note {
-            font-size: 8pt;
-            color: #444;
-            line-height: 1.5;
-            margin-bottom: 10px;
-        }
-        .issue-text {
-            font-size: 10pt;
-            line-height: 1.6;
-            margin-bottom: 20px;
-        }
-        /* ── Signature ── */
-        .signature-block {
-            margin-top: 30px;
-        }
-        .sig-line {
-            border-top: 1px solid #000;
-            width: 200px;
-            margin-bottom: 4px;
-        }
-        .sig-name { font-weight: bold; font-size: 10pt; }
-        .sig-title { font-size: 9pt; }
-        /* ── Print button (hidden on print) ── */
-        .print-bar {
+
+        /* ── Action bar (hidden on print) ─────────────────────── */
+        .action-bar {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #343a40;
+            top: 0; left: 0; right: 0;
+            background: #1e2329;
             color: #fff;
             padding: 8px 16px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
             z-index: 999;
-        }
-        .print-bar a { color: #adb5bd; text-decoration: none; font-size: 13px; }
-        .print-bar button {
-            background: #0d6efd;
-            color: #fff;
-            border: none;
-            padding: 6px 18px;
-            border-radius: 4px;
-            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             font-size: 13px;
         }
+        .action-bar a, .action-bar button {
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px 14px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+        .action-bar .btn-back   { background: transparent; color: #9ca3af; }
+        .action-bar .btn-back:hover { color: #fff; }
+        .action-bar .btn-print  { background: #374151; color: #e5e7eb; }
+        .action-bar .btn-print:hover { background: #4b5563; }
+        .action-bar .btn-edit   { background: #d97706; color: #fff; }
+        .action-bar .btn-edit:hover { background: #b45309; }
+        .action-bar .btn-submit { background: #2563eb; color: #fff; }
+        .action-bar .btn-submit:hover { background: #1d4ed8; }
+        .action-bar .btn-approve { background: #16a34a; color: #fff; }
+        .action-bar .btn-approve:hover { background: #15803d; }
+        .action-bar .btn-reject  { background: transparent; color: #f87171; border: 1px solid #f87171; }
+        .action-bar .btn-reject:hover { background: #7f1d1d; color: #fff; }
+        .action-bar .btn-pdf    { background: #374151; color: #e5e7eb; }
+        .action-bar .btn-pdf:hover { background: #4b5563; }
+        .action-bar .sep { color: #4b5563; }
+        .action-bar .status-badge {
+            margin-left: auto;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+        .status-draft    { background: #374151; color: #9ca3af; }
+        .status-pending  { background: #92400e; color: #fde68a; }
+        .status-approved { background: #14532d; color: #86efac; }
+        .status-rejected { background: #7f1d1d; color: #fca5a5; }
+
+        /* Inline reject form */
+        .reject-form { display: flex; gap: 6px; align-items: center; }
+        .reject-form input {
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: 1px solid #6b7280;
+            background: #374151;
+            color: #fff;
+            font-size: 12px;
+            width: 220px;
+        }
+        .reject-form input::placeholder { color: #9ca3af; }
+
+        /* ── Certificate page ──────────────────────────────────── */
+        .page-wrap {
+            padding: 56px 0 30px; /* top clearance for action bar */
+        }
+        .page {
+            position: relative;
+            width: 21.59cm;
+            min-height: 27.94cm;
+            margin: 0 auto;
+            background: #fff;
+            box-shadow: 0 4px 24px rgba(0,0,0,.25);
+            overflow: hidden;
+        }
+
+        /* Letterhead as full-page background */
+        .page-letterhead {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: fill;
+            z-index: 0;
+        }
+
+        /* Content overlaid on letterhead */
+        .cert-content {
+            position: relative;
+            z-index: 1;
+            /* Match PDF margins: 4.5cm top, 3.2cm bottom, 3cm left, 2.5cm right */
+            padding: 4.5cm 2.5cm 3.5cm 3cm;
+            min-height: 27.94cm;
+        }
+
+        /* ── Certificate typography ── */
+        .cert-number {
+            font-size: 9pt;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .cert-certificamos {
+            font-size: 13pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .cert-body {
+            font-size: 11pt;
+            line-height: 1.65;
+            text-align: justify;
+            margin-bottom: 14px;
+        }
+        .svc-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2px;
+        }
+        .svc-table th {
+            font-size: 10pt;
+            font-weight: bold;
+            border-top: 0.5pt solid #000;
+            border-bottom: 0.5pt solid #000;
+            padding: 4px 0;
+        }
+        .svc-table td {
+            font-size: 10pt;
+            padding: 4px 0;
+        }
+        .svc-table .val-col { text-align: right; width: 4cm; }
+        .svc-desc { font-size: 9pt; color: #333; margin-bottom: 4px; }
+        .svc-rule { border: none; border-top: 0.5pt solid #000; margin: 2px 0 6px; }
+        .cert-total {
+            font-size: 10pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .cert-iva {
+            font-size: 8pt;
+            color: #444;
+            line-height: 1.5;
+            text-align: justify;
+            margin-bottom: 12px;
+        }
+        .cert-footer {
+            font-size: 10pt;
+            line-height: 1.65;
+            text-align: justify;
+            margin-bottom: 24px;
+        }
+        .signature-block { margin-top: 10px; }
+        .signature-block img {
+            display: block;
+            height: 2cm;
+            width: auto;
+            max-width: 5cm;
+            margin-bottom: 2px;
+        }
+        .sig-name { font-size: 10pt; font-weight: bold; margin-bottom: 1px; }
+        .sig-role { font-size: 9pt; }
+
+        /* ── Print styles ───────────────────────────────────────── */
         @media print {
             body { background: #fff; }
-            .print-bar { display: none; }
-            .page { margin: 0; box-shadow: none; padding: 1.5cm 2cm; }
+            .action-bar { display: none !important; }
+            .page-wrap { padding: 0; }
+            .page {
+                width: 100%;
+                min-height: 100vh;
+                margin: 0;
+                box-shadow: none;
+            }
+            @page { margin: 0; size: letter; }
         }
     </style>
 </head>
 <body>
 
-<div class="print-bar">
-    <a href="/certificates/{{ cert.id }}">&larr; Volver</a>
-    <span style="font-size:13px">Vista previa del certificado</span>
-    <button onclick="window.print()">Imprimir / Guardar PDF</button>
+<!-- ── Action bar (hidden on print) ── -->
+<div class="action-bar">
+    <a href="/certificates" class="btn-back">← Lista</a>
+    <span class="sep">|</span>
+    <button class="btn-print" onclick="window.print()">Imprimir / PDF</button>
+
+    {% if can_edit %}
+    <span class="sep">|</span>
+    <a href="/certificates/{{ cert.id }}/edit" class="btn-edit">Editar</a>
+    <form method="post" action="/certificates/{{ cert.id }}/submit" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn-submit">Enviar a revisión</button>
+    </form>
+    {% endif %}
+
+    {% if can_review %}
+    <span class="sep">|</span>
+    <form method="post" action="/certificates/{{ cert.id }}/approve" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn-approve">Aprobar</button>
+    </form>
+    <form method="post" action="/certificates/{{ cert.id }}/reject" class="reject-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input name="rejection_comment" placeholder="Motivo del rechazo" required>
+        <button type="submit" class="btn-reject">Rechazar</button>
+    </form>
+    {% endif %}
+
+    {% if cert.status.value == "approved" %}
+    <span class="sep">|</span>
+    <a href="/certificates/{{ cert.id }}/pdf" class="btn-pdf">Descargar PDF</a>
+    {% if current_user.role.value in ("revisor", "admin") %}
+    <form method="post" action="/certificates/{{ cert.id }}/resend-email" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn-pdf">Reenviar correo</button>
+    </form>
+    {% endif %}
+    {% endif %}
+
+    <span class="status-badge status-{{ cert.status.value }}">
+        {{ {"draft":"Borrador","pending":"En revisión","approved":"Aprobado","rejected":"Rechazado"}[cert.status.value] }}
+    </span>
 </div>
 
+<!-- ── Certificate page ── -->
+<div class="page-wrap">
 <div class="page">
+    <img class="page-letterhead" src="/static/img/letterhead.jpg" alt="">
 
-    {# ── Header ── #}
-    <div class="cert-header">
-        <div class="cert-empresa">{{ cert.empresa or "RECORDAR" }}</div>
-        <div class="cert-subtitulo">Servicios Exequiales</div>
-    </div>
+    <div class="cert-content">
 
-    {% if cert.numero_certificado %}
-    <div class="cert-numero">{{ cert.numero_certificado }}</div>
-    {% endif %}
+        {% if cert.numero_certificado %}
+        <div class="cert-number">{{ cert.numero_certificado }}</div>
+        {% endif %}
 
-    {# ── Body ── #}
-    <div class="cert-certificamos">CERTIFICAMOS</div>
+        <div class="cert-certificamos">CERTIFICAMOS</div>
 
-    <div class="cert-body">
-        Que el (la) señor (a) <strong>{{ cert.cliente_nombre_completo }}</strong>,
-        identificado (a) con la cédula de ciudadanía N° {{ cert.cliente_numero_documento }};
-        titular de los servicios que adquirió en nuestra empresa que se relaciona a continuación.
-        Los cuales fueron utilizados con el beneficiario (a)
-        <strong>{{ cert.fallecido_nombre_completo }}</strong>
-        identificado(a) con la cédula de ciudadanía N° {{ cert.fallecido_numero_documento }}
-        (Q.E.P.D);
-        Fecha de Defunción el día
-        {% if cert.fallecido_fecha_fallecimiento %}
-            {{ cert.fallecido_fecha_fallecimiento.strftime("%-d de %B de %Y") | upper | replace("JANUARY","enero") | replace("FEBRUARY","febrero") | replace("MARCH","marzo") | replace("APRIL","abril") | replace("MAY","mayo") | replace("JUNE","junio") | replace("JULY","julio") | replace("AUGUST","agosto") | replace("SEPTEMBER","septiembre") | replace("OCTOBER","octubre") | replace("NOVEMBER","noviembre") | replace("DECEMBER","diciembre") }}
-        {% else %}-{% endif %}.
-    </div>
+        <div class="cert-body">
+            Que el (la) señor (a) <strong>{{ cert.cliente_nombre_completo }}</strong>,
+            identificado (a) con la cédula de ciudadanía N° {{ cert.cliente_numero_documento }};
+            titular de los servicios que adquirió en nuestra empresa que se relaciona
+            a continuación. Los cuales fueron utilizados con el beneficiario (a)
+            <strong>{{ cert.fallecido_nombre_completo }}</strong>
+            identificado(a) con la cédula de ciudadanía N° {{ cert.fallecido_numero_documento }}
+            (Q.E.P.D);
+            Fecha de Defunción el día
+            {% if cert.fallecido_fecha_fallecimiento %}
+                {{ issue_fallecimiento }}
+            {% else %}-{% endif %}.
+        </div>
 
-    {# ── Services ── #}
-    {% if cert.nombre_servicio or cert.valor_total %}
-    <table class="services-table">
-        <tr>
-            <th>SERVICIOS UTILIZADOS</th>
-            <th class="valor-col">VALOR</th>
-        </tr>
-        <tr>
-            <td>
-                {{ cert.nombre_servicio or "" }}{% if cert.nombre_servicio %}{% set dots = "." * [1, 60 - cert.nombre_servicio|length]|max %}{{ dots }}{% endif %}
-            </td>
-            <td class="valor-col">
-                {% if cert.valor_total %}$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}{% else %}-{% endif %}
-            </td>
-        </tr>
+        {% if cert.nombre_servicio or cert.valor_total %}
+        <table class="svc-table">
+            <thead>
+                <tr>
+                    <th>SERVICIOS UTILIZADOS</th>
+                    <th class="val-col">VALOR</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{% if cert.nombre_servicio %}{{ cert.nombre_servicio | upper }}{% endif %}{% if cert.nombre_servicio %}{{ "." * [1, 65 - cert.nombre_servicio|length]|max }}{% endif %}</td>
+                    <td class="val-col">
+                        {% if cert.valor_total %}$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}{% else %}-{% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
         {% if cert.descripcion_servicio %}
-        <tr>
-            <td class="svc-desc" colspan="2">({{ cert.descripcion_servicio }})</td>
-        </tr>
+        <div class="svc-desc">({{ cert.descripcion_servicio }})</div>
         {% endif %}
-    </table>
-    <hr class="services-divider">
-    {% if cert.valor_total %}
-    <div class="total-line">TOTAL: {{ total_palabras }} PESOS M/L (${{ "{:,}".format(cert.valor_total).replace(",", ".") }})</div>
-    {% endif %}
-    {% endif %}
+        <hr class="svc-rule">
 
-    {# ── IVA ── #}
-    <div class="iva-note">
-        Producto Excluido de IVA: Conforme con lo dispuesto por el Artículo 476, numeral 14
-        del estatuto tributario, se encuentran excluidos del impuesto sobre las ventas los
-        Servicios Funerarios, los de Cremación, Inhumación y Exhumación de Cadáveres, Alquiler
-        y Mantenimiento de Tumbas y Mausoleos.
-    </div>
-
-    {# ── Issue date ── #}
-    <div class="issue-text">
-        Se expide la presente certificación a solicitud del interesado
-        a los {{ issue_day }} días del mes de {{ issue_month }} de {{ issue_year }}.
-        {% if cert.numero_factura %}
-            Amparado bajo la Factura N° {{ cert.numero_factura }}
-        {% elif cert.numero_recibo_caja %}
-            Recibo de caja N° {{ cert.numero_recibo_caja }}
+        {% if cert.valor_total %}
+        <div class="cert-total">
+            TOTAL: {{ total_palabras }} PESOS&nbsp;M/L (${{ "{:,}".format(cert.valor_total).replace(",", ".") }})
+        </div>
         {% endif %}
-    </div>
+        {% endif %}
 
-    {# ── Signature ── #}
-    <div class="signature-block">
-        <div class="sig-line"></div>
-        <div class="sig-name">{{ cert.asesor.full_name if cert.asesor else "Administrador de Ciudad" }}</div>
-        <div class="sig-title">Administrador de Ciudad</div>
-        <div class="sig-title">{{ issue_date }}</div>
-    </div>
+        <div class="cert-iva">
+            Producto Excluido de IVA: Conforme con lo dispuesto por el Artículo 476, numeral 14
+            del estatuto tributario, se encuentran excluidos del impuesto sobre las ventas los
+            Servicios Funerarios, los de Cremación, Inhumación y Exhumación de Cadáveres, Alquiler
+            y Mantenimiento de Tumbas y Mausoleos.
+        </div>
 
+        <div class="cert-footer">
+            Se expide la presente certificación a solicitud del interesado a los
+            {{ issue_day }} días del mes de {{ issue_month }} de {{ issue_year }}.
+            {% if cert.numero_factura %}
+                Amparado bajo la Factura N° {{ cert.numero_factura }}
+            {% elif cert.numero_recibo_caja %}
+                Recibo de caja N° {{ cert.numero_recibo_caja }}
+            {% endif %}
+        </div>
+
+        <div class="signature-block">
+            <img src="/static/img/signature.png" alt="Firma">
+            <div class="sig-name">{{ cert.asesor.full_name if cert.asesor else "Administrador de Ciudad" }}</div>
+            <div class="sig-role">Administrador de Ciudad</div>
+            <div class="sig-role">{{ issue_date }}</div>
+        </div>
+
+    </div>
 </div>
+</div>
+
 </body>
 </html>

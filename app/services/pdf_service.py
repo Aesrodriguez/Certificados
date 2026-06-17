@@ -1,102 +1,61 @@
 import io
 from datetime import date
+from pathlib import Path
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
-from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    BaseDocTemplate,
+    Frame,
+    Image,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 from app.models.certificate_request import CertificateRequest
 
+_STATIC = Path(__file__).resolve().parent.parent / "static" / "img"
+_LETTERHEAD = str(_STATIC / "letterhead.jpg")
+_SIGNATURE = str(_STATIC / "signature.png")
+
+# ── Page geometry matched to the letterhead template ──────────────────────────
+# Letter page: 21.59 cm × 27.94 cm
+# Letterhead has: header ~4.5 cm (logo + green curves), footer ~3 cm
+_PAGE_W, _PAGE_H = letter
+_TOP_MARGIN    = 4.5 * cm
+_BOTTOM_MARGIN = 3.2 * cm
+_LEFT_MARGIN   = 3.0 * cm
+_RIGHT_MARGIN  = 2.5 * cm
+
+# ── Styles ────────────────────────────────────────────────────────────────────
 _styles = getSampleStyleSheet()
 
-_title_style = ParagraphStyle(
-    "ClaraTitle",
-    parent=_styles["Title"],
-    fontSize=18,
-    spaceAfter=2,
-    alignment=1,  # center
-)
-_subtitle_style = ParagraphStyle(
-    "ClaraSubtitle",
-    parent=_styles["Normal"],
-    fontSize=10,
-    spaceAfter=2,
-    alignment=1,
-    textColor=colors.grey,
-)
-_cert_num_style = ParagraphStyle(
-    "CertNum",
-    parent=_styles["Normal"],
-    fontSize=9,
-    spaceAfter=2,
-    textColor=colors.grey,
-)
-_heading_style = ParagraphStyle(
-    "Heading",
-    parent=_styles["Normal"],
-    fontSize=13,
-    spaceBefore=14,
-    spaceAfter=6,
-    fontName="Helvetica-Bold",
-)
-_body_style = ParagraphStyle(
-    "Body",
-    parent=_styles["Normal"],
-    fontSize=10,
-    spaceAfter=4,
-    leading=14,
-)
-_services_label_style = ParagraphStyle(
-    "ServLabel",
-    parent=_styles["Normal"],
-    fontSize=10,
-    fontName="Helvetica-Bold",
-)
-_services_value_style = ParagraphStyle(
-    "ServValue",
-    parent=_styles["Normal"],
-    fontSize=10,
-    fontName="Helvetica-Bold",
-    alignment=2,  # right
-)
-_total_style = ParagraphStyle(
-    "Total",
-    parent=_styles["Normal"],
-    fontSize=10,
-    fontName="Helvetica-Bold",
-    spaceBefore=6,
-    spaceAfter=6,
-)
-_iva_style = ParagraphStyle(
-    "IVA",
-    parent=_styles["Normal"],
-    fontSize=8,
-    spaceAfter=8,
-    textColor=colors.grey,
-    leading=11,
-)
-_footer_style = ParagraphStyle(
-    "Footer",
-    parent=_styles["Normal"],
-    fontSize=9,
-    spaceAfter=4,
-    leading=12,
-)
-_sig_name_style = ParagraphStyle(
-    "SigName",
-    parent=_styles["Normal"],
-    fontSize=10,
-    fontName="Helvetica-Bold",
-    spaceAfter=1,
-)
-_sig_title_style = ParagraphStyle(
-    "SigTitle",
-    parent=_styles["Normal"],
-    fontSize=9,
-    spaceAfter=1,
-)
+_cert_num = ParagraphStyle("CertNum",   parent=_styles["Normal"], fontSize=9,
+                           textColor=colors.HexColor("#555555"), spaceAfter=6)
+_heading  = ParagraphStyle("Heading",   parent=_styles["Normal"], fontSize=13,
+                           fontName="Helvetica-Bold", spaceBefore=6, spaceAfter=8)
+_body     = ParagraphStyle("Body",      parent=_styles["Normal"], fontSize=10,
+                           leading=16, spaceAfter=10, alignment=4)  # justified
+_svc_bold = ParagraphStyle("SvcBold",  parent=_styles["Normal"], fontSize=10,
+                           fontName="Helvetica-Bold")
+_svc_r    = ParagraphStyle("SvcRight", parent=_styles["Normal"], fontSize=10,
+                           fontName="Helvetica-Bold", alignment=2)
+_total    = ParagraphStyle("Total",    parent=_styles["Normal"], fontSize=10,
+                           fontName="Helvetica-Bold", spaceBefore=4, spaceAfter=8)
+_iva      = ParagraphStyle("IVA",      parent=_styles["Normal"], fontSize=8,
+                           textColor=colors.HexColor("#444444"), leading=11,
+                           spaceAfter=10, alignment=4)
+_footer_p = ParagraphStyle("FooterP",  parent=_styles["Normal"], fontSize=10,
+                           leading=14, spaceAfter=4, alignment=4)
+_sig_name = ParagraphStyle("SigName",  parent=_styles["Normal"], fontSize=10,
+                           fontName="Helvetica-Bold", spaceAfter=1)
+_sig_role = ParagraphStyle("SigRole",  parent=_styles["Normal"], fontSize=9,
+                           spaceAfter=1)
 
 _MESES = [
     "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -109,12 +68,10 @@ def _fecha_larga(d: date) -> str:
 
 
 def _formato_cop(n: int) -> str:
-    """Format integer as Colombian peso: 18240000 → '18.240.000'"""
     return f"{n:,}".replace(",", ".")
 
 
 def _numero_a_palabras(n: int) -> str:
-    """Convert a positive integer to Colombian Spanish uppercase words."""
     if n == 0:
         return "CERO"
 
@@ -167,122 +124,159 @@ def _numero_a_palabras(n: int) -> str:
     return " ".join(parts)
 
 
+def _draw_letterhead(canvas, doc):
+    """Draw the GRUPO RECORDAR letterhead as full-page background on every page."""
+    canvas.saveState()
+    canvas.drawImage(_LETTERHEAD, 0, 0, width=_PAGE_W, height=_PAGE_H,
+                     preserveAspectRatio=False)
+    canvas.restoreState()
+
+
 def build_certificate_pdf(cert: CertificateRequest) -> bytes:
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
+
+    frame = Frame(
+        _LEFT_MARGIN,
+        _BOTTOM_MARGIN,
+        _PAGE_W - _LEFT_MARGIN - _RIGHT_MARGIN,
+        _PAGE_H - _TOP_MARGIN - _BOTTOM_MARGIN,
+        id="main",
+        leftPadding=0,
+        rightPadding=0,
+        topPadding=0,
+        bottomPadding=0,
+    )
+    page_template = PageTemplate(
+        id="main",
+        frames=[frame],
+        onPage=_draw_letterhead,
+    )
+    doc = BaseDocTemplate(
         buffer,
         pagesize=letter,
-        topMargin=2 * cm,
-        bottomMargin=2 * cm,
-        leftMargin=2.5 * cm,
-        rightMargin=2.5 * cm,
+        pageTemplates=[page_template],
         title=f"Certificado {cert.numero_certificado or cert.id}",
+        leftMargin=_LEFT_MARGIN,
+        rightMargin=_RIGHT_MARGIN,
+        topMargin=_TOP_MARGIN,
+        bottomMargin=_BOTTOM_MARGIN,
     )
 
-    story = []
+    story: list = []
 
-    # ── Header ────────────────────────────────────────────────────────────────
-    empresa = cert.empresa or "RECORDAR"
-    story.append(Paragraph(empresa, _title_style))
-    story.append(Paragraph("Servicios Exequiales", _subtitle_style))
-    story.append(Spacer(1, 0.3 * cm))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.black))
-    story.append(Spacer(1, 0.2 * cm))
-
+    # ── Certificate reference number ──────────────────────────────────────────
     if cert.numero_certificado:
-        story.append(Paragraph(cert.numero_certificado, _cert_num_style))
+        story.append(Paragraph(cert.numero_certificado, _cert_num))
 
-    # ── Body ──────────────────────────────────────────────────────────────────
-    story.append(Paragraph("CERTIFICAMOS", _heading_style))
+    # ── CERTIFICAMOS heading ──────────────────────────────────────────────────
+    story.append(Paragraph("CERTIFICAMOS", _heading))
 
+    # ── Body paragraph ────────────────────────────────────────────────────────
     fallecimiento = _fecha_larga(cert.fallecido_fecha_fallecimiento) if cert.fallecido_fecha_fallecimiento else "-"
-    doc_cliente = cert.cliente_numero_documento or "-"
-    doc_fallecido = cert.fallecido_numero_documento or "-"
-
     body_text = (
         f"Que el (la) señor (a) <b>{cert.cliente_nombre_completo}</b>, "
-        f"identificado (a) con la cédula de ciudadanía N° {doc_cliente}; "
+        f"identificado (a) con la cédula de ciudadanía N° {cert.cliente_numero_documento}; "
         f"titular de los servicios que adquirió en nuestra empresa que se relaciona "
         f"a continuación. Los cuales fueron utilizados con el beneficiario (a) "
         f"<b>{cert.fallecido_nombre_completo}</b> identificado(a) con la cédula de "
-        f"ciudadanía N° {doc_fallecido} (Q.E.P.D); "
+        f"ciudadanía N° {cert.fallecido_numero_documento} (Q.E.P.D); "
         f"Fecha de Defunción el día {fallecimiento}."
     )
-    story.append(Paragraph(body_text, _body_style))
-    story.append(Spacer(1, 0.4 * cm))
+    story.append(Paragraph(body_text, _body))
+    story.append(Spacer(1, 0.3 * cm))
 
-    # ── Services ──────────────────────────────────────────────────────────────
+    # ── Services table ────────────────────────────────────────────────────────
     if cert.nombre_servicio or cert.valor_total:
-        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.black))
-
-        services_header = Table(
-            [[
-                Paragraph("SERVICIOS UTILIZADOS", _services_label_style),
-                Paragraph("VALOR", _services_value_style),
-            ]],
-            colWidths=[12 * cm, 4 * cm],
-        )
-        services_header.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ]))
-        story.append(services_header)
-        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.black))
+        content_width = _PAGE_W - _LEFT_MARGIN - _RIGHT_MARGIN
+        val_col = 4 * cm
+        svc_col = content_width - val_col
 
         valor_str = f"$ {_formato_cop(cert.valor_total)}" if cert.valor_total else "-"
-        svc_name = cert.nombre_servicio or ""
-        svc_dots = "." * max(1, 60 - len(svc_name))
+        svc_name = (cert.nombre_servicio or "").upper()
 
-        services_row = Table(
-            [[
-                Paragraph(f"{svc_name}{svc_dots}", _body_style),
-                Paragraph(valor_str, ParagraphStyle("ValRight", parent=_body_style, alignment=2)),
-            ]],
-            colWidths=[12 * cm, 4 * cm],
+        # Header row
+        header = Table(
+            [[Paragraph("SERVICIOS UTILIZADOS", _svc_bold),
+              Paragraph("VALOR", _svc_r)]],
+            colWidths=[svc_col, val_col],
         )
-        services_row.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-        story.append(services_row)
+        header.setStyle(TableStyle([
+            ("LINEABOVE",  (0, 0), (-1, 0), 0.5, colors.black),
+            ("LINEBELOW",  (0, 0), (-1, 0), 0.5, colors.black),
+            ("TOPPADDING",    (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+        story.append(header)
+
+        # Service row — dotted leader between name and price
+        dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(svc_name)))
+        svc_row = Table(
+            [[Paragraph(f"{svc_name}{dots}", _body),
+              Paragraph(valor_str, _svc_r)]],
+            colWidths=[svc_col, val_col],
+        )
+        svc_row.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        story.append(svc_row)
 
         if cert.descripcion_servicio:
-            story.append(Paragraph(f"({cert.descripcion_servicio})", _body_style))
+            story.append(Paragraph(f"({cert.descripcion_servicio})", _body))
 
-        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.black))
+        # Closing rule
+        closing = Table([[""]], colWidths=[content_width])
+        closing.setStyle(TableStyle([
+            ("LINEBELOW", (0, 0), (-1, -1), 0.5, colors.black),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        story.append(closing)
         story.append(Spacer(1, 0.3 * cm))
 
         if cert.valor_total:
             palabras = _numero_a_palabras(cert.valor_total)
-            total_text = f"TOTAL: {palabras} PESOS M/L (${_formato_cop(cert.valor_total)})"
-            story.append(Paragraph(total_text, _total_style))
+            story.append(Paragraph(
+                f"TOTAL: {palabras} PESOS M/L (${_formato_cop(cert.valor_total)})",
+                _total,
+            ))
 
     # ── IVA exclusion ─────────────────────────────────────────────────────────
-    story.append(Spacer(1, 0.3 * cm))
     story.append(Paragraph(
         "Producto Excluido de IVA: Conforme con lo dispuesto por el Artículo 476, numeral 14 "
         "del estatuto tributario, se encuentran excluidos del impuesto sobre las ventas los "
         "Servicios Funerarios, los de Cremación, Inhumación y Exhumación de Cadáveres, Alquiler "
         "y Mantenimiento de Tumbas y Mausoleos.",
-        _iva_style,
+        _iva,
     ))
 
-    # ── Issue date ────────────────────────────────────────────────────────────
-    issue_date = cert.reviewed_at.date() if cert.reviewed_at else date.today()
+    # ── Issue paragraph ───────────────────────────────────────────────────────
+    issue = cert.reviewed_at.date() if cert.reviewed_at else date.today()
     footer_text = (
         f"Se expide la presente certificación a solicitud del interesado a los "
-        f"{issue_date.day} días del mes de {_MESES[issue_date.month]} de {issue_date.year}."
+        f"{issue.day} días del mes de {_MESES[issue.month]} de {issue.year}."
     )
     if cert.numero_factura:
         footer_text += f" Amparado bajo la Factura N° {cert.numero_factura}"
     elif cert.numero_recibo_caja:
         footer_text += f" Recibo de caja N° {cert.numero_recibo_caja}"
-    story.append(Paragraph(footer_text, _footer_style))
+    story.append(Paragraph(footer_text, _footer_p))
 
-    # ── Signature ─────────────────────────────────────────────────────────────
-    story.append(Spacer(1, 1.5 * cm))
-    story.append(HRFlowable(width=6 * cm, thickness=0.5, color=colors.black, hAlign="LEFT"))
-    story.append(Paragraph(cert.asesor.full_name if cert.asesor else "Administrador de Ciudad", _sig_name_style))
-    story.append(Paragraph("Administrador de Ciudad", _sig_title_style))
-    story.append(Paragraph(issue_date.strftime("%d/%m/%Y"), _sig_title_style))
+    # ── Signature block ───────────────────────────────────────────────────────
+    story.append(Spacer(1, 1.0 * cm))
+    if Path(_SIGNATURE).exists():
+        sig_img = Image(_SIGNATURE, width=5 * cm, height=2 * cm)
+        sig_img.hAlign = "LEFT"
+        story.append(sig_img)
+    else:
+        story.append(Spacer(1, 2 * cm))
+
+    asesor_name = cert.asesor.full_name if cert.asesor else "Administrador de Ciudad"
+    story.append(Paragraph(asesor_name, _sig_name))
+    story.append(Paragraph("Administrador de Ciudad", _sig_role))
+    story.append(Paragraph(issue.strftime("%d/%m/%Y"), _sig_role))
 
     doc.build(story)
     return buffer.getvalue()

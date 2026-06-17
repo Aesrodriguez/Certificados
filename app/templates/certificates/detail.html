@@ -5,8 +5,8 @@
     <h1 class="h4 m-0">Solicitud de certificado</h1>
     <div class="d-flex align-items-center gap-2">
         {% with status=cert.status %}{% include "certificates/_status_badge.html" %}{% endwith %}
-        <a href="/certificates/{{ cert.id }}/preview" class="btn btn-outline-info btn-sm" target="_blank">
-            Vista previa
+        <a href="/certificates/{{ cert.id }}/preview" class="btn btn-outline-info btn-sm">
+            ← Ver certificado
         </a>
     </div>
 </div>

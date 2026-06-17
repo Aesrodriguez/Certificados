@@ -281,8 +281,19 @@ async def preview_certificate(
     except certificate_service.CertificateServiceError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
+    is_admin = session.user.role == RoleEnum.ADMIN
+    can_edit = (is_admin or cert.asesor_id == session.user.id) and cert.status in certificate_service.EDITABLE_STATUSES
+    can_review = session.user.role in (RoleEnum.REVISOR, RoleEnum.ADMIN) and cert.status.value == "pending"
+
     issue_date_obj = cert.reviewed_at.date() if cert.reviewed_at else date.today()
     total_palabras = _numero_a_palabras(cert.valor_total) if cert.valor_total else ""
+
+    # Spanish date for the death date shown in the body text
+    fallecimiento_obj = cert.fallecido_fecha_fallecimiento
+    if fallecimiento_obj:
+        issue_fallecimiento = f"{fallecimiento_obj.day} de {_MESES[fallecimiento_obj.month]} de {fallecimiento_obj.year}"
+    else:
+        issue_fallecimiento = "-"
 
     return templates.TemplateResponse(
         request,
@@ -290,11 +301,15 @@ async def preview_certificate(
         {
             "cert": cert,
             "current_user": session.user,
+            "csrf_token": generate_csrf_token(session.csrf_secret),
+            "can_edit": can_edit,
+            "can_review": can_review,
             "total_palabras": total_palabras,
             "issue_day": issue_date_obj.day,
             "issue_month": _MESES[issue_date_obj.month],
             "issue_year": issue_date_obj.year,
             "issue_date": issue_date_obj.strftime("%d/%m/%Y"),
+            "issue_fallecimiento": issue_fallecimiento,
         },
     )
 

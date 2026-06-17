@@ -30,8 +30,12 @@
             <td>{% with status=cert.status %}{% include "certificates/_status_badge.html" %}{% endwith %}</td>
             <td>{{ cert.created_at.strftime("%Y-%m-%d") }}</td>
             <td class="text-nowrap">
-                <a href="/certificates/{{ cert.id }}" class="btn btn-outline-secondary btn-sm">Ver</a>
-                <a href="/certificates/{{ cert.id }}/preview" class="btn btn-outline-info btn-sm" target="_blank">Prevista</a>
+                {# "Ver" opens the certificate in Word format #}
+                <a href="/certificates/{{ cert.id }}/preview" class="btn btn-primary btn-sm">Ver</a>
+                {# Gear for data/management view (asesor/admin only) #}
+                {% if current_user.role.value in ("asesor", "admin") %}
+                <a href="/certificates/{{ cert.id }}" class="btn btn-outline-secondary btn-sm" title="Gestionar datos">⚙</a>
+                {% endif %}
             </td>
         </tr>
         {% else %}
