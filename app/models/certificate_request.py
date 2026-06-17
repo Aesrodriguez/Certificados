@@ -63,5 +63,18 @@ class CertificateRequest(Base, UUIDPKMixin, TimestampMixin):
     plan_o_poliza: Mapped[str | None] = mapped_column(String(100), nullable=True)
     observaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Campos del dashboard Asesor (basados en el Excel de solicitudes)
+    empresa: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    tipo_certificado: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    numero_aviso: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    fecha_afiliacion: Mapped[date | None] = mapped_column(Date, nullable=True)
+    numero_recibo_caja: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    numero_contrato: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    numero_certificado: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    numero_factura: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    nombre_servicio: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    descripcion_servicio: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    valor_total: Mapped[int | None] = mapped_column(nullable=True)
+
     asesor: Mapped["User"] = relationship(foreign_keys=[asesor_id])
     revisor: Mapped["User | None"] = relationship(foreign_keys=[revisor_id])

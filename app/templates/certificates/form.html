@@ -8,99 +8,224 @@
 <form method="post" action="{{ form_action }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-    <h2 class="h6 text-muted mt-3">Datos del cliente</h2>
-    <div class="row">
-        <div class="col-md-6 mb-2">
-            <label class="form-label">Nombre completo</label>
-            <input class="form-control" name="cliente_nombre_completo" value="{{ cert.cliente_nombre_completo if cert else '' }}" required>
-        </div>
-        <div class="col-md-3 mb-2">
-            <label class="form-label">Tipo doc.</label>
-            <select class="form-select" name="cliente_tipo_documento">
-                {% for t in ["CC", "CE", "TI", "PAS", "RC"] %}
-                <option value="{{ t }}" {% if cert and cert.cliente_tipo_documento == t %}selected{% endif %}>{{ t }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-3 mb-2">
-            <label class="form-label">Número doc.</label>
-            <input class="form-control" name="cliente_numero_documento" value="{{ cert.cliente_numero_documento if cert else '' }}" required>
-        </div>
-        <div class="col-md-4 mb-2">
-            <label class="form-label">Teléfono</label>
-            <input class="form-control" name="cliente_telefono" value="{{ cert.cliente_telefono if cert else '' }}" required>
-        </div>
-        <div class="col-md-4 mb-2">
-            <label class="form-label">Correo</label>
-            <input class="form-control" type="email" name="cliente_email" value="{{ cert.cliente_email if cert else '' }}" required>
-        </div>
-        <div class="col-md-4 mb-2">
-            <label class="form-label">Parentesco con el fallecido</label>
-            <input class="form-control" name="cliente_parentesco" value="{{ cert.cliente_parentesco if cert else '' }}" required>
-        </div>
-        <div class="col-md-6 mb-2">
-            <label class="form-label">Dirección</label>
-            <input class="form-control" name="cliente_direccion" value="{{ cert.cliente_direccion if cert else '' }}">
-        </div>
-        <div class="col-md-6 mb-2">
-            <label class="form-label">Ciudad</label>
-            <input class="form-control" name="cliente_ciudad" value="{{ cert.cliente_ciudad if cert else '' }}">
-        </div>
-    </div>
-
-    <h2 class="h6 text-muted mt-4">Datos del fallecido</h2>
-    <div class="row">
-        <div class="col-md-6 mb-2">
-            <label class="form-label">Nombre completo</label>
-            <input class="form-control" name="fallecido_nombre_completo" value="{{ cert.fallecido_nombre_completo if cert else '' }}" required>
-        </div>
-        <div class="col-md-3 mb-2">
-            <label class="form-label">Tipo doc.</label>
-            <select class="form-select" name="fallecido_tipo_documento">
-                {% for t in ["CC", "CE", "TI", "PAS", "RC"] %}
-                <option value="{{ t }}" {% if cert and cert.fallecido_tipo_documento == t %}selected{% endif %}>{{ t }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-3 mb-2">
-            <label class="form-label">Número doc.</label>
-            <input class="form-control" name="fallecido_numero_documento" value="{{ cert.fallecido_numero_documento if cert else '' }}" required>
-        </div>
-        <div class="col-md-4 mb-2">
-            <label class="form-label">Fecha de nacimiento</label>
-            <input class="form-control" type="date" name="fallecido_fecha_nacimiento" value="{{ cert.fallecido_fecha_nacimiento if cert else '' }}">
-        </div>
-        <div class="col-md-4 mb-2">
-            <label class="form-label">Fecha de fallecimiento</label>
-            <input class="form-control" type="date" name="fallecido_fecha_fallecimiento" value="{{ cert.fallecido_fecha_fallecimiento if cert else '' }}" required>
-        </div>
-        <div class="col-md-4 mb-2">
-            <label class="form-label">Lugar de fallecimiento</label>
-            <input class="form-control" name="fallecido_lugar_fallecimiento" value="{{ cert.fallecido_lugar_fallecimiento if cert else '' }}">
-        </div>
-        <div class="col-md-6 mb-2">
-            <label class="form-label">Causa de fallecimiento</label>
-            <input class="form-control" name="fallecido_causa_fallecimiento" value="{{ cert.fallecido_causa_fallecimiento if cert else '' }}">
-        </div>
-        <div class="col-md-6 mb-2">
-            <label class="form-label">Número de acta de defunción</label>
-            <input class="form-control" name="fallecido_numero_acta_defuncion" value="{{ cert.fallecido_numero_acta_defuncion if cert else '' }}">
+    {# ── Información del certificado ── #}
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Información del certificado</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-5 mb-2">
+                    <label class="form-label">Tipo de documento solicitado</label>
+                    <select class="form-select" name="tipo_certificado">
+                        <option value="">-- Seleccionar --</option>
+                        {% set tipos = [
+                            "CERTIFICADO DE GASTOS RECORDAR",
+                            "CERTIFICACION DE GASTOS POR FACTURA",
+                            "CERTIFICADO DE ELEMENTOS DETALLADO",
+                            "CERTIFICADO DE ELEMENTOS PARA SUCESION",
+                            "CERTIFICADO DE ELEMENTOS SENCILLO"
+                        ] %}
+                        {% for t in tipos %}
+                        <option value="{{ t }}" {% if cert and (cert.tipo_certificado == t if cert is not mapping else cert.get('tipo_certificado') == t) %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Empresa</label>
+                    <select class="form-select" name="empresa">
+                        <option value="">-- Seleccionar --</option>
+                        {% for e in ["RECORDAR", "PARQUES Y FUNERARIAS"] %}
+                        <option value="{{ e }}" {% if cert and (cert.empresa == e if cert is not mapping else cert.get('empresa') == e) %}selected{% endif %}>{{ e }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <label class="form-label">N.º certificado</label>
+                    <input class="form-control" name="numero_certificado"
+                           value="{{ cert.numero_certificado if cert and cert is not mapping else (cert.get('numero_certificado','') if cert else '') }}">
+                </div>
+            </div>
         </div>
     </div>
 
-    <h2 class="h6 text-muted mt-4">Otros datos</h2>
-    <div class="row">
-        <div class="col-md-6 mb-2">
-            <label class="form-label">Plan o póliza</label>
-            <input class="form-control" name="plan_o_poliza" value="{{ cert.plan_o_poliza if cert else '' }}">
-        </div>
-        <div class="col-12 mb-2">
-            <label class="form-label">Observaciones</label>
-            <textarea class="form-control" name="observaciones">{{ cert.observaciones if cert else '' }}</textarea>
+    {# ── Datos del solicitante ── #}
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Datos del solicitante</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
+                    <input class="form-control" name="cliente_nombre_completo"
+                           value="{{ cert.cliente_nombre_completo if cert and cert is not mapping else (cert.get('cliente_nombre_completo','') if cert else '') }}" required>
+                </div>
+                <div class="col-md-2 mb-2">
+                    <label class="form-label">Tipo doc.</label>
+                    <select class="form-select" name="cliente_tipo_documento">
+                        {% for t in ["CC", "CE", "TI", "PAS", "RC"] %}
+                        <option value="{{ t }}" {% if cert and (cert.cliente_tipo_documento == t if cert is not mapping else cert.get('cliente_tipo_documento') == t) %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Número documento <span class="text-danger">*</span></label>
+                    <input class="form-control" name="cliente_numero_documento"
+                           value="{{ cert.cliente_numero_documento if cert and cert is not mapping else (cert.get('cliente_numero_documento','') if cert else '') }}" required>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                    <input class="form-control" name="cliente_telefono"
+                           value="{{ cert.cliente_telefono if cert and cert is not mapping else (cert.get('cliente_telefono','') if cert else '') }}" required>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                    <input class="form-control" type="email" name="cliente_email"
+                           value="{{ cert.cliente_email if cert and cert is not mapping else (cert.get('cliente_email','') if cert else '') }}" required>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Parentesco con el fallecido <span class="text-danger">*</span></label>
+                    <input class="form-control" name="cliente_parentesco"
+                           value="{{ cert.cliente_parentesco if cert and cert is not mapping else (cert.get('cliente_parentesco','') if cert else '') }}" required>
+                </div>
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Dirección</label>
+                    <input class="form-control" name="cliente_direccion"
+                           value="{{ cert.cliente_direccion if cert and cert is not mapping else (cert.get('cliente_direccion','') if cert else '') }}">
+                </div>
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Ciudad</label>
+                    <input class="form-control" name="cliente_ciudad"
+                           value="{{ cert.cliente_ciudad if cert and cert is not mapping else (cert.get('cliente_ciudad','') if cert else '') }}">
+                </div>
+            </div>
         </div>
     </div>
 
-    <button type="submit" class="btn btn-primary mt-2">Guardar</button>
-    <a href="/certificates" class="btn btn-outline-secondary mt-2">Cancelar</a>
+    {# ── Datos del fallecido ── #}
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Datos del fallecido</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
+                    <input class="form-control" name="fallecido_nombre_completo"
+                           value="{{ cert.fallecido_nombre_completo if cert and cert is not mapping else (cert.get('fallecido_nombre_completo','') if cert else '') }}" required>
+                </div>
+                <div class="col-md-2 mb-2">
+                    <label class="form-label">Tipo doc.</label>
+                    <select class="form-select" name="fallecido_tipo_documento">
+                        {% for t in ["CC", "CE", "TI", "PAS", "RC"] %}
+                        <option value="{{ t }}" {% if cert and (cert.fallecido_tipo_documento == t if cert is not mapping else cert.get('fallecido_tipo_documento') == t) %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Número documento <span class="text-danger">*</span></label>
+                    <input class="form-control" name="fallecido_numero_documento"
+                           value="{{ cert.fallecido_numero_documento if cert and cert is not mapping else (cert.get('fallecido_numero_documento','') if cert else '') }}" required>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Fecha de nacimiento</label>
+                    <input class="form-control" type="date" name="fallecido_fecha_nacimiento"
+                           value="{{ cert.fallecido_fecha_nacimiento if cert and cert is not mapping else (cert.get('fallecido_fecha_nacimiento','') if cert else '') }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Fecha de fallecimiento <span class="text-danger">*</span></label>
+                    <input class="form-control" type="date" name="fallecido_fecha_fallecimiento"
+                           value="{{ cert.fallecido_fecha_fallecimiento if cert and cert is not mapping else (cert.get('fallecido_fecha_fallecimiento','') if cert else '') }}" required>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Lugar de fallecimiento</label>
+                    <input class="form-control" name="fallecido_lugar_fallecimiento"
+                           value="{{ cert.fallecido_lugar_fallecimiento if cert and cert is not mapping else (cert.get('fallecido_lugar_fallecimiento','') if cert else '') }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Fecha de afiliación</label>
+                    <input class="form-control" type="date" name="fecha_afiliacion"
+                           value="{{ cert.fecha_afiliacion if cert and cert is not mapping else (cert.get('fecha_afiliacion','') if cert else '') }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Causa de fallecimiento</label>
+                    <input class="form-control" name="fallecido_causa_fallecimiento"
+                           value="{{ cert.fallecido_causa_fallecimiento if cert and cert is not mapping else (cert.get('fallecido_causa_fallecimiento','') if cert else '') }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">N.º acta de defunción</label>
+                    <input class="form-control" name="fallecido_numero_acta_defuncion"
+                           value="{{ cert.fallecido_numero_acta_defuncion if cert and cert is not mapping else (cert.get('fallecido_numero_acta_defuncion','') if cert else '') }}">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Servicios utilizados ── #}
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Servicios utilizados</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Nombre del servicio</label>
+                    <input class="form-control" name="nombre_servicio"
+                           placeholder="Ej: SERVICIO FUNERARIO ESTILO EXTRA"
+                           value="{{ cert.nombre_servicio if cert and cert is not mapping else (cert.get('nombre_servicio','') if cert else '') }}">
+                </div>
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Descripción del servicio</label>
+                    <input class="form-control" name="descripcion_servicio"
+                           placeholder="Ej: Inhumación - Destino final"
+                           value="{{ cert.descripcion_servicio if cert and cert is not mapping else (cert.get('descripcion_servicio','') if cert else '') }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Valor total (COP)</label>
+                    <input class="form-control" type="number" min="0" name="valor_total"
+                           placeholder="Ej: 18240000"
+                           value="{{ cert.valor_total if cert and cert is not mapping else (cert.get('valor_total','') if cert else '') }}">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Datos administrativos ── #}
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Datos administrativos</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">N.º Recibo de caja</label>
+                    <input class="form-control" name="numero_recibo_caja"
+                           value="{{ cert.numero_recibo_caja if cert and cert is not mapping else (cert.get('numero_recibo_caja','') if cert else '') }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Contrato</label>
+                    <input class="form-control" name="numero_contrato"
+                           placeholder="Ej: BQ026S000001431036"
+                           value="{{ cert.numero_contrato if cert and cert is not mapping else (cert.get('numero_contrato','') if cert else '') }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">N.º Factura</label>
+                    <input class="form-control" name="numero_factura"
+                           placeholder="Ej: PC124123"
+                           value="{{ cert.numero_factura if cert and cert is not mapping else (cert.get('numero_factura','') if cert else '') }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Número de aviso</label>
+                    <input class="form-control" name="numero_aviso"
+                           value="{{ cert.numero_aviso if cert and cert is not mapping else (cert.get('numero_aviso','') if cert else '') }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Plan o póliza</label>
+                    <input class="form-control" name="plan_o_poliza"
+                           value="{{ cert.plan_o_poliza if cert and cert is not mapping else (cert.get('plan_o_poliza','') if cert else '') }}">
+                </div>
+                <div class="col-12 mb-2">
+                    <label class="form-label">Observaciones</label>
+                    <textarea class="form-control" name="observaciones" rows="2">{{ cert.observaciones if cert and cert is not mapping else (cert.get('observaciones','') if cert else '') }}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-2">
+        <button type="submit" class="btn btn-primary">Guardar borrador</button>
+        <a href="/certificates" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
 </form>
 {% endblock %}

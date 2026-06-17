@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 import pydantic
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
@@ -17,6 +18,7 @@ from app.models.user import RoleEnum
 from app.schemas.certificate_request import CertificateRequestIn
 from app.services import certificate_service, pdf_service
 from app.services.audit_service import log_action
+from app.services.pdf_service import _numero_a_palabras, _MESES
 
 router = APIRouter(
     prefix="/certificates",
@@ -261,6 +263,39 @@ async def reject_certificate(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return RedirectResponse(url=f"/certificates/{cert.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/{cert_id}/preview")
+async def preview_certificate(
+    cert_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    session: DbSession = Depends(get_current_session),
+):
+    cert = await certificate_service.get_or_none(db, cert_id)
+    if cert is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    try:
+        certificate_service.assert_can_view(cert, session.user)
+    except certificate_service.CertificateServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    issue_date_obj = cert.reviewed_at.date() if cert.reviewed_at else date.today()
+    total_palabras = _numero_a_palabras(cert.valor_total) if cert.valor_total else ""
+
+    return templates.TemplateResponse(
+        request,
+        "certificates/preview.html",
+        {
+            "cert": cert,
+            "current_user": session.user,
+            "total_palabras": total_palabras,
+            "issue_day": issue_date_obj.day,
+            "issue_month": _MESES[issue_date_obj.month],
+            "issue_year": issue_date_obj.year,
+            "issue_date": issue_date_obj.strftime("%d/%m/%Y"),
+        },
+    )
 
 
 @router.get("/{cert_id}/pdf")

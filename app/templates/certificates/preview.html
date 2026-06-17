@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vista previa — {{ cert.numero_certificado or cert.id }}</title>
+    <style>
+        /* Print-ready certificate preview */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 11pt;
+            color: #000;
+            background: #f0f0f0;
+        }
+        .page {
+            background: #fff;
+            width: 21cm;
+            min-height: 27cm;
+            margin: 1cm auto;
+            padding: 2.5cm 3cm;
+            box-shadow: 0 2px 10px rgba(0,0,0,.2);
+        }
+        /* ── Header ── */
+        .cert-header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+        .cert-empresa {
+            font-size: 20pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .cert-subtitulo {
+            font-size: 9pt;
+            color: #555;
+            margin-top: 2px;
+        }
+        .cert-numero {
+            text-align: right;
+            font-size: 9pt;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        /* ── Heading ── */
+        .cert-certificamos {
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 14px 0 8px;
+            text-transform: uppercase;
+        }
+        .cert-body {
+            line-height: 1.7;
+            text-align: justify;
+            margin-bottom: 16px;
+        }
+        /* ── Services ── */
+        .services-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0 4px;
+        }
+        .services-table th {
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 4px 0;
+            font-size: 10pt;
+            font-weight: bold;
+        }
+        .services-table td {
+            padding: 4px 0;
+            font-size: 10pt;
+        }
+        .services-table .valor-col { text-align: right; }
+        .services-table .svc-desc {
+            font-size: 9pt;
+            color: #333;
+            padding-left: 8px;
+        }
+        .services-divider { border: none; border-top: 1px solid #000; margin: 4px 0; }
+        .total-line {
+            font-weight: bold;
+            font-size: 10pt;
+            margin: 6px 0 10px;
+        }
+        /* ── IVA & Footer ── */
+        .iva-note {
+            font-size: 8pt;
+            color: #444;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+        .issue-text {
+            font-size: 10pt;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        /* ── Signature ── */
+        .signature-block {
+            margin-top: 30px;
+        }
+        .sig-line {
+            border-top: 1px solid #000;
+            width: 200px;
+            margin-bottom: 4px;
+        }
+        .sig-name { font-weight: bold; font-size: 10pt; }
+        .sig-title { font-size: 9pt; }
+        /* ── Print button (hidden on print) ── */
+        .print-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #343a40;
+            color: #fff;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 999;
+        }
+        .print-bar a { color: #adb5bd; text-decoration: none; font-size: 13px; }
+        .print-bar button {
+            background: #0d6efd;
+            color: #fff;
+            border: none;
+            padding: 6px 18px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        @media print {
+            body { background: #fff; }
+            .print-bar { display: none; }
+            .page { margin: 0; box-shadow: none; padding: 1.5cm 2cm; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="print-bar">
+    <a href="/certificates/{{ cert.id }}">&larr; Volver</a>
+    <span style="font-size:13px">Vista previa del certificado</span>
+    <button onclick="window.print()">Imprimir / Guardar PDF</button>
+</div>
+
+<div class="page">
+
+    {# ── Header ── #}
+    <div class="cert-header">
+        <div class="cert-empresa">{{ cert.empresa or "RECORDAR" }}</div>
+        <div class="cert-subtitulo">Servicios Exequiales</div>
+    </div>
+
+    {% if cert.numero_certificado %}
+    <div class="cert-numero">{{ cert.numero_certificado }}</div>
+    {% endif %}
+
+    {# ── Body ── #}
+    <div class="cert-certificamos">CERTIFICAMOS</div>
+
+    <div class="cert-body">
+        Que el (la) señor (a) <strong>{{ cert.cliente_nombre_completo }}</strong>,
+        identificado (a) con la cédula de ciudadanía N° {{ cert.cliente_numero_documento }};
+        titular de los servicios que adquirió en nuestra empresa que se relaciona a continuación.
+        Los cuales fueron utilizados con el beneficiario (a)
+        <strong>{{ cert.fallecido_nombre_completo }}</strong>
+        identificado(a) con la cédula de ciudadanía N° {{ cert.fallecido_numero_documento }}
+        (Q.E.P.D);
+        Fecha de Defunción el día
+        {% if cert.fallecido_fecha_fallecimiento %}
+            {{ cert.fallecido_fecha_fallecimiento.strftime("%-d de %B de %Y") | upper | replace("JANUARY","enero") | replace("FEBRUARY","febrero") | replace("MARCH","marzo") | replace("APRIL","abril") | replace("MAY","mayo") | replace("JUNE","junio") | replace("JULY","julio") | replace("AUGUST","agosto") | replace("SEPTEMBER","septiembre") | replace("OCTOBER","octubre") | replace("NOVEMBER","noviembre") | replace("DECEMBER","diciembre") }}
+        {% else %}-{% endif %}.
+    </div>
+
+    {# ── Services ── #}
+    {% if cert.nombre_servicio or cert.valor_total %}
+    <table class="services-table">
+        <tr>
+            <th>SERVICIOS UTILIZADOS</th>
+            <th class="valor-col">VALOR</th>
+        </tr>
+        <tr>
+            <td>
+                {{ cert.nombre_servicio or "" }}{% if cert.nombre_servicio %}{% set dots = "." * [1, 60 - cert.nombre_servicio|length]|max %}{{ dots }}{% endif %}
+            </td>
+            <td class="valor-col">
+                {% if cert.valor_total %}$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}{% else %}-{% endif %}
+            </td>
+        </tr>
+        {% if cert.descripcion_servicio %}
+        <tr>
+            <td class="svc-desc" colspan="2">({{ cert.descripcion_servicio }})</td>
+        </tr>
+        {% endif %}
+    </table>
+    <hr class="services-divider">
+    {% if cert.valor_total %}
+    <div class="total-line">TOTAL: {{ total_palabras }} PESOS M/L (${{ "{:,}".format(cert.valor_total).replace(",", ".") }})</div>
+    {% endif %}
+    {% endif %}
+
+    {# ── IVA ── #}
+    <div class="iva-note">
+        Producto Excluido de IVA: Conforme con lo dispuesto por el Artículo 476, numeral 14
+        del estatuto tributario, se encuentran excluidos del impuesto sobre las ventas los
+        Servicios Funerarios, los de Cremación, Inhumación y Exhumación de Cadáveres, Alquiler
+        y Mantenimiento de Tumbas y Mausoleos.
+    </div>
+
+    {# ── Issue date ── #}
+    <div class="issue-text">
+        Se expide la presente certificación a solicitud del interesado
+        a los {{ issue_day }} días del mes de {{ issue_month }} de {{ issue_year }}.
+        {% if cert.numero_factura %}
+            Amparado bajo la Factura N° {{ cert.numero_factura }}
+        {% elif cert.numero_recibo_caja %}
+            Recibo de caja N° {{ cert.numero_recibo_caja }}
+        {% endif %}
+    </div>
+
+    {# ── Signature ── #}
+    <div class="signature-block">
+        <div class="sig-line"></div>
+        <div class="sig-name">{{ cert.asesor.full_name if cert.asesor else "Administrador de Ciudad" }}</div>
+        <div class="sig-title">Administrador de Ciudad</div>
+        <div class="sig-title">{{ issue_date }}</div>
+    </div>
+
+</div>
+</body>
+</html>
