@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.audit_log import AuditActionEnum
 from app.models.certificate_request import CertificateRequest, StatusEnum
@@ -18,18 +19,48 @@ class CertificateServiceError(Exception):
     """Raised for certificate workflow violations meant to be shown to the user."""
 
 
-async def list_for_user(db: AsyncSession, user: User) -> list[CertificateRequest]:
-    query = select(CertificateRequest).order_by(CertificateRequest.created_at.desc())
+def _base_query(user: User):
+    q = select(CertificateRequest).order_by(CertificateRequest.created_at.desc())
     if user.role == RoleEnum.ASESOR:
-        query = query.where(CertificateRequest.asesor_id == user.id)
+        q = q.where(CertificateRequest.asesor_id == user.id)
     elif user.role == RoleEnum.REVISOR:
-        query = query.where(CertificateRequest.status != StatusEnum.DRAFT)
-    result = await db.execute(query)
-    return list(result.scalars().all())
+        q = q.where(CertificateRequest.status != StatusEnum.DRAFT)
+    return q
+
+
+async def list_for_user(
+    db: AsyncSession,
+    user: User,
+    status_filter: str | None = None,
+    page: int = 1,
+    per_page: int = 25,
+) -> tuple[list[CertificateRequest], int]:
+    q = _base_query(user)
+    if status_filter:
+        try:
+            q = q.where(CertificateRequest.status == StatusEnum[status_filter.upper()])
+        except KeyError:
+            pass
+
+    count_result = await db.execute(select(func.count()).select_from(q.subquery()))
+    total = count_result.scalar_one()
+
+    q = q.offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(q)
+    return list(result.scalars().all()), total
 
 
 async def get_or_none(db: AsyncSession, cert_id: uuid.UUID) -> CertificateRequest | None:
     result = await db.execute(select(CertificateRequest).where(CertificateRequest.id == cert_id))
+    return result.scalar_one_or_none()
+
+
+async def get_with_asesor(db: AsyncSession, cert_id: uuid.UUID) -> CertificateRequest | None:
+    result = await db.execute(
+        select(CertificateRequest)
+        .where(CertificateRequest.id == cert_id)
+        .options(selectinload(CertificateRequest.asesor))
+    )
     return result.scalar_one_or_none()
 
 

@@ -38,19 +38,32 @@ def _ctx(session: DbSession, **extra) -> dict:
     }
 
 
+PER_PAGE = 25
+
+
 @router.get("")
 async def list_certificates(
     request: Request,
     db: AsyncSession = Depends(get_db),
     session: DbSession = Depends(get_current_session),
     status_filter: str | None = Query(None, alias="status"),
+    page: int = Query(1, ge=1),
 ):
-    certs = await certificate_service.list_for_user(db, session.user)
-    if status_filter:
-        certs = [c for c in certs if c.status.value == status_filter]
+    certs, total = await certificate_service.list_for_user(
+        db, session.user, status_filter=status_filter, page=page, per_page=PER_PAGE
+    )
+    total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
     return templates.TemplateResponse(
         request, "certificates/list.html",
-        _ctx(session, certs=certs, status_filter=status_filter)
+        _ctx(
+            session,
+            certs=certs,
+            status_filter=status_filter,
+            page=page,
+            total=total,
+            total_pages=total_pages,
+            per_page=PER_PAGE,
+        ),
     )
 
 
@@ -277,7 +290,8 @@ async def preview_certificate(
     db: AsyncSession = Depends(get_db),
     session: DbSession = Depends(get_current_session),
 ):
-    cert = await certificate_service.get_or_none(db, cert_id)
+    # Eager-load asesor to avoid lazy-load blocking the async event loop
+    cert = await certificate_service.get_with_asesor(db, cert_id)
     if cert is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     try:
@@ -292,18 +306,20 @@ async def preview_certificate(
     issue_date_obj = cert.reviewed_at.date() if cert.reviewed_at else date.today()
     total_palabras = _numero_a_palabras(cert.valor_total) if cert.valor_total else ""
 
-    # Spanish date for the death date shown in the body text
     fallecimiento_obj = cert.fallecido_fecha_fallecimiento
     if fallecimiento_obj:
         issue_fallecimiento = f"{fallecimiento_obj.day} de {_MESES[fallecimiento_obj.month]} de {fallecimiento_obj.year}"
     else:
         issue_fallecimiento = "-"
 
+    asesor_name = cert.asesor.full_name if cert.asesor else "Administrador de Ciudad"
+
     return templates.TemplateResponse(
         request,
         "certificates/preview.html",
         {
             "cert": cert,
+            "asesor_name": asesor_name,
             "current_user": session.user,
             "csrf_token": generate_csrf_token(session.csrf_secret),
             "can_edit": can_edit,
