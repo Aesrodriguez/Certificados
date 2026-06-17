@@ -71,28 +71,12 @@
             {{ cert.created_at.strftime("%d/%m/%Y") }}
           </td>
           <td>
-            {# "Ver" abre el modal rápido #}
+            {# "Ver" abre el modal rápido — ID en atributo simple, datos en CERTS{} #}
             <button type="button"
                     class="btn btn-primary btn-sm"
-                    onclick="abrirCert(this)"
+                    onclick="verCert('{{ cert.id }}')"
                     data-bs-toggle="modal"
-                    data-bs-target="#certModal"
-                    data-id="{{ cert.id }}"
-                    data-fallecido="{{ cert.fallecido_nombre_completo | e }}"
-                    data-fdoc="{{ cert.fallecido_numero_documento | e }}"
-                    data-ffecha="{{ cert.fallecido_fecha_fallecimiento.strftime('%d/%m/%Y') if cert.fallecido_fecha_fallecimiento else '—' }}"
-                    data-cliente="{{ cert.cliente_nombre_completo | e }}"
-                    data-cdoc="{{ cert.cliente_numero_documento | e }}"
-                    data-cemail="{{ cert.cliente_email | e }}"
-                    data-tipo="{{ cert.tipo_certificado | e if cert.tipo_certificado else '—' }}"
-                    data-empresa="{{ cert.empresa | e if cert.empresa else '—' }}"
-                    data-contrato="{{ cert.numero_contrato | e if cert.numero_contrato else '—' }}"
-                    data-recibo="{{ cert.numero_recibo_caja | e if cert.numero_recibo_caja else '—' }}"
-                    data-aviso="{{ cert.numero_aviso | e if cert.numero_aviso else '—' }}"
-                    data-afiliacion="{{ cert.fecha_afiliacion.strftime('%d/%m/%Y') if cert.fecha_afiliacion else '—' }}"
-                    data-obs="{{ cert.observaciones | e if cert.observaciones else '' }}"
-                    data-status="{{ cert.status.value }}"
-                    data-fecha="{{ cert.created_at.strftime('%d/%m/%Y') }}">
+                    data-bs-target="#certModal">
               <i class="bi bi-eye me-1"></i>Ver
             </button>
           </td>
@@ -274,52 +258,71 @@
 
 {% block extra_js %}
 <script>
-function abrirCert(btn) {
-  const d  = btn.dataset;
-  const id = d.id;
-  const s  = d.status;
+/* Todos los datos del certificado en un objeto JSON — evita problemas de
+   encoding de atributos HTML con caracteres especiales (tildes, comillas). */
+var CERTS = {
+{% for cert in certs %}
+  "{{ cert.id }}": {
+    fallecido : {{ (cert.fallecido_nombre_completo  or '') | tojson }},
+    fdoc      : {{ (cert.fallecido_numero_documento or '') | tojson }},
+    ffecha    : {{ (cert.fallecido_fecha_fallecimiento.strftime('%d/%m/%Y') if cert.fallecido_fecha_fallecimiento else '—') | tojson }},
+    cliente   : {{ (cert.cliente_nombre_completo    or '') | tojson }},
+    cdoc      : {{ (cert.cliente_numero_documento   or '') | tojson }},
+    cemail    : {{ (cert.cliente_email              or '') | tojson }},
+    tipo      : {{ (cert.tipo_certificado           or '—') | tojson }},
+    empresa   : {{ (cert.empresa                    or '—') | tojson }},
+    contrato  : {{ (cert.numero_contrato            or '—') | tojson }},
+    recibo    : {{ (cert.numero_recibo_caja         or '—') | tojson }},
+    aviso     : {{ (cert.numero_aviso               or '—') | tojson }},
+    afiliacion: {{ (cert.fecha_afiliacion.strftime('%d/%m/%Y') if cert.fecha_afiliacion else '—') | tojson }},
+    obs       : {{ (cert.observaciones              or '') | tojson }},
+    status    : {{ cert.status.value | tojson }},
+    fecha     : {{ cert.created_at.strftime('%d/%m/%Y') | tojson }}
+  }{% if not loop.last %},{% endif %}
 
-  // Header
-  document.getElementById('mFallecido').textContent = d.fallecido || '';
-  document.getElementById('mFecha').textContent     = d.fecha     || '';
+{% endfor %}
+};
 
-  const statusLabels = {draft:'Borrador', pending:'Pendiente', approved:'Aprobado', rejected:'Rechazado'};
-  const statusColors = {draft:'badge-draft', pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected'};
-  const badge = document.getElementById('mStatusBadge');
+function verCert(id) {
+  var d = CERTS[id];
+  if (!d) return;
+  var s = d.status;
+
+  var statusLabels = {draft:'Borrador', pending:'Pendiente', approved:'Aprobado', rejected:'Rechazado'};
+  var statusColors = {draft:'badge-draft', pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected'};
+
+  document.getElementById('mFallecido').textContent      = d.fallecido;
+  document.getElementById('mFecha').textContent          = d.fecha;
+
+  var badge = document.getElementById('mStatusBadge');
   badge.className   = 'badge-status ' + (statusColors[s] || '');
   badge.textContent = statusLabels[s] || s;
 
-  // Tipo / empresa
-  document.getElementById('mTipo').textContent    = d.tipo    || '—';
-  document.getElementById('mEmpresa').textContent = d.empresa || '—';
+  document.getElementById('mTipo').textContent           = d.tipo;
+  document.getElementById('mEmpresa').textContent        = d.empresa;
 
-  // Fallecido
-  document.getElementById('mFallecidoNombre').textContent = d.fallecido || '';
-  document.getElementById('mFallecidoDoc').textContent    = d.fdoc      || '';
-  document.getElementById('mFallecidoFecha').textContent  = d.ffecha    || '';
-  document.getElementById('mAfiliacion').textContent      = d.afiliacion || '';
+  document.getElementById('mFallecidoNombre').textContent = d.fallecido;
+  document.getElementById('mFallecidoDoc').textContent   = d.fdoc;
+  document.getElementById('mFallecidoFecha').textContent = d.ffecha;
+  document.getElementById('mAfiliacion').textContent     = d.afiliacion;
 
-  // Solicitante
-  document.getElementById('mClienteNombre').textContent = d.cliente || '';
-  document.getElementById('mClienteDoc').textContent    = d.cdoc    || '';
-  document.getElementById('mClienteEmail').textContent  = d.cemail  || '';
+  document.getElementById('mClienteNombre').textContent  = d.cliente;
+  document.getElementById('mClienteDoc').textContent     = d.cdoc;
+  document.getElementById('mClienteEmail').textContent   = d.cemail;
 
-  // Admin
-  document.getElementById('mContrato').textContent = d.contrato || '—';
-  document.getElementById('mRecibo').textContent   = d.recibo   || '—';
-  document.getElementById('mAviso').textContent    = d.aviso    || '—';
+  document.getElementById('mContrato').textContent       = d.contrato;
+  document.getElementById('mRecibo').textContent         = d.recibo;
+  document.getElementById('mAviso').textContent          = d.aviso;
 
-  const obs = d.obs || '';
-  document.getElementById('mObs').textContent = obs;
-  document.getElementById('mObsWrap').style.display = obs ? 'block' : 'none';
+  document.getElementById('mObs').textContent            = d.obs;
+  document.getElementById('mObsWrap').style.display      = d.obs ? 'block' : 'none';
 
-  // Links
   document.getElementById('mPreviewLink').href = '/certificates/' + id + '/preview';
 
-  const editLink = document.getElementById('mEditLink');
+  var editLink = document.getElementById('mEditLink');
   if (editLink) {
-    const canEdit = (s === 'draft' || s === 'rejected');
-    editLink.href = '/certificates/' + id + '/edit';
+    var canEdit = (s === 'draft' || s === 'rejected');
+    editLink.href         = '/certificates/' + id + '/edit';
     editLink.style.display = canEdit ? 'inline-flex' : 'none';
   }
 }
