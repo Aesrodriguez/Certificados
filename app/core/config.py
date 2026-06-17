@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "Clara Certificados <certificados@example.com>"
 
+    # Gmail SMTP (free, no domain required)
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""      # tu correo Gmail
+    SMTP_PASSWORD: str = ""  # App Password de Gmail (no la contraseña normal)
+
     ADMIN_EMAIL: str = ""
     ADMIN_PASSWORD: str = ""
     ADMIN_FULL_NAME: str = ""

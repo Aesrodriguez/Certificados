@@ -153,7 +153,7 @@ async def send_certificate_email(
     )
 
     try:
-        email_service.send_certificate_email(cert, pdf_bytes)
+        await email_service.send_certificate_email_async(cert, pdf_bytes)
     except email_service.EmailDeliveryError as exc:
         await log_action(
             db,

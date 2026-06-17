@@ -73,7 +73,7 @@ async def forgot_password_submit(
         raw_token, user = result
         reset_url = str(request.base_url).rstrip("/") + f"/reset-password?token={raw_token}"
         try:
-            send_password_reset_email(user.email, user.full_name, reset_url)
+            await send_password_reset_email(user.email, user.full_name, reset_url)
         except EmailDeliveryError:
             pass  # silent — never reveal if the email exists
         await log_action(
