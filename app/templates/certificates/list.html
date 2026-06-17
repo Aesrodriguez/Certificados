@@ -74,22 +74,23 @@
             {# "Ver" abre el modal rápido #}
             <button type="button"
                     class="btn btn-primary btn-sm"
+                    onclick="abrirCert(this)"
                     data-bs-toggle="modal"
                     data-bs-target="#certModal"
-                    data-cert-id="{{ cert.id }}"
-                    data-fallecido="{{ cert.fallecido_nombre_completo }}"
-                    data-fallecido-doc="{{ cert.fallecido_numero_documento }}"
-                    data-fallecido-fecha="{{ cert.fallecido_fecha_fallecimiento.strftime('%d/%m/%Y') if cert.fallecido_fecha_fallecimiento else '—' }}"
-                    data-cliente="{{ cert.cliente_nombre_completo }}"
-                    data-cliente-doc="{{ cert.cliente_numero_documento }}"
-                    data-cliente-email="{{ cert.cliente_email }}"
-                    data-tipo="{{ cert.tipo_certificado or '—' }}"
-                    data-empresa="{{ cert.empresa or '—' }}"
-                    data-contrato="{{ cert.numero_contrato or '—' }}"
-                    data-recibo="{{ cert.numero_recibo_caja or '—' }}"
-                    data-aviso="{{ cert.numero_aviso or '—' }}"
+                    data-id="{{ cert.id }}"
+                    data-fallecido="{{ cert.fallecido_nombre_completo | e }}"
+                    data-fdoc="{{ cert.fallecido_numero_documento | e }}"
+                    data-ffecha="{{ cert.fallecido_fecha_fallecimiento.strftime('%d/%m/%Y') if cert.fallecido_fecha_fallecimiento else '—' }}"
+                    data-cliente="{{ cert.cliente_nombre_completo | e }}"
+                    data-cdoc="{{ cert.cliente_numero_documento | e }}"
+                    data-cemail="{{ cert.cliente_email | e }}"
+                    data-tipo="{{ cert.tipo_certificado | e if cert.tipo_certificado else '—' }}"
+                    data-empresa="{{ cert.empresa | e if cert.empresa else '—' }}"
+                    data-contrato="{{ cert.numero_contrato | e if cert.numero_contrato else '—' }}"
+                    data-recibo="{{ cert.numero_recibo_caja | e if cert.numero_recibo_caja else '—' }}"
+                    data-aviso="{{ cert.numero_aviso | e if cert.numero_aviso else '—' }}"
                     data-afiliacion="{{ cert.fecha_afiliacion.strftime('%d/%m/%Y') if cert.fecha_afiliacion else '—' }}"
-                    data-obs="{{ cert.observaciones or '' }}"
+                    data-obs="{{ cert.observaciones | e if cert.observaciones else '' }}"
                     data-status="{{ cert.status.value }}"
                     data-fecha="{{ cert.created_at.strftime('%d/%m/%Y') }}">
               <i class="bi bi-eye me-1"></i>Ver
@@ -273,43 +274,42 @@
 
 {% block extra_js %}
 <script>
-const certModal = document.getElementById('certModal');
-certModal.addEventListener('show.bs.modal', function (event) {
-  const btn  = event.relatedTarget;
-  const id   = btn.dataset.certId;
-  const s    = btn.dataset.status;
+function abrirCert(btn) {
+  const d  = btn.dataset;
+  const id = d.id;
+  const s  = d.status;
 
   // Header
-  document.getElementById('mFallecido').textContent   = btn.dataset.fallecido;
-  document.getElementById('mFecha').textContent       = btn.dataset.fecha;
+  document.getElementById('mFallecido').textContent = d.fallecido || '';
+  document.getElementById('mFecha').textContent     = d.fecha     || '';
 
   const statusLabels = {draft:'Borrador', pending:'Pendiente', approved:'Aprobado', rejected:'Rechazado'};
   const statusColors = {draft:'badge-draft', pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected'};
   const badge = document.getElementById('mStatusBadge');
-  badge.className = 'badge-status ' + (statusColors[s] || '');
+  badge.className   = 'badge-status ' + (statusColors[s] || '');
   badge.textContent = statusLabels[s] || s;
 
   // Tipo / empresa
-  document.getElementById('mTipo').textContent    = btn.dataset.tipo;
-  document.getElementById('mEmpresa').textContent = btn.dataset.empresa;
+  document.getElementById('mTipo').textContent    = d.tipo    || '—';
+  document.getElementById('mEmpresa').textContent = d.empresa || '—';
 
   // Fallecido
-  document.getElementById('mFallecidoNombre').textContent = btn.dataset.fallecido;
-  document.getElementById('mFallecidoDoc').textContent    = btn.dataset.fallecidoDoc;
-  document.getElementById('mFallecidoFecha').textContent  = btn.dataset.fallecidoFecha;
-  document.getElementById('mAfiliacion').textContent      = btn.dataset.afiliacion;
+  document.getElementById('mFallecidoNombre').textContent = d.fallecido || '';
+  document.getElementById('mFallecidoDoc').textContent    = d.fdoc      || '';
+  document.getElementById('mFallecidoFecha').textContent  = d.ffecha    || '';
+  document.getElementById('mAfiliacion').textContent      = d.afiliacion || '';
 
   // Solicitante
-  document.getElementById('mClienteNombre').textContent = btn.dataset.cliente;
-  document.getElementById('mClienteDoc').textContent    = btn.dataset.clienteDoc;
-  document.getElementById('mClienteEmail').textContent  = btn.dataset.clienteEmail;
+  document.getElementById('mClienteNombre').textContent = d.cliente || '';
+  document.getElementById('mClienteDoc').textContent    = d.cdoc    || '';
+  document.getElementById('mClienteEmail').textContent  = d.cemail  || '';
 
   // Admin
-  document.getElementById('mContrato').textContent = btn.dataset.contrato;
-  document.getElementById('mRecibo').textContent   = btn.dataset.recibo;
-  document.getElementById('mAviso').textContent    = btn.dataset.aviso;
+  document.getElementById('mContrato').textContent = d.contrato || '—';
+  document.getElementById('mRecibo').textContent   = d.recibo   || '—';
+  document.getElementById('mAviso').textContent    = d.aviso    || '—';
 
-  const obs = btn.dataset.obs || '';
+  const obs = d.obs || '';
   document.getElementById('mObs').textContent = obs;
   document.getElementById('mObsWrap').style.display = obs ? 'block' : 'none';
 
@@ -322,6 +322,6 @@ certModal.addEventListener('show.bs.modal', function (event) {
     editLink.href = '/certificates/' + id + '/edit';
     editLink.style.display = canEdit ? 'inline-flex' : 'none';
   }
-});
+}
 </script>
 {% endblock %}
