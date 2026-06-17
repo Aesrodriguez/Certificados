@@ -1,47 +1,99 @@
 {% extends "base.html" %}
-{% block title %}Certificados - Clara Certificados{% endblock %}
+{% block title %}Solicitudes - Clara Certificados{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 m-0">Certificados</h1>
-    {% if current_user.role.value in ("asesor", "admin") %}
-    <a href="/certificates/new" class="btn btn-primary btn-sm">+ Nueva solicitud</a>
-    {% endif %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">
+      {% if status_filter == "pending" %}Pendientes de revisión
+      {% elif current_user.role.value == "asesor" %}Mis solicitudes
+      {% else %}Todas las solicitudes{% endif %}
+    </h1>
+    <p class="page-subtitle">
+      {{ certs|length }} solicitud{% if certs|length != 1 %}es{% endif %} encontrada{% if certs|length != 1 %}s{% endif %}
+      {% if status_filter %} · filtrando por «{{ status_filter }}»{% endif %}
+    </p>
+  </div>
+  {% if current_user.role.value in ("asesor", "admin") %}
+  <a href="/certificates/new" class="btn btn-primary">
+    <i class="bi bi-plus-circle me-2"></i>Nueva solicitud
+  </a>
+  {% endif %}
 </div>
-<div class="table-responsive">
-<table class="table table-sm table-bordered align-middle">
-    <thead class="table-light">
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table mb-0">
+      <thead>
         <tr>
-            <th>Fallecido</th>
-            <th>Solicitante</th>
-            <th>Tipo de certificado</th>
-            <th>Empresa</th>
-            <th>Estado</th>
-            <th>Creado</th>
-            <th></th>
+          <th>Fallecido</th>
+          <th>Solicitante</th>
+          <th>Tipo de certificado</th>
+          <th>Empresa</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+          <th style="width:110px"></th>
         </tr>
-    </thead>
-    <tbody>
+      </thead>
+      <tbody>
         {% for cert in certs %}
         <tr>
-            <td>{{ cert.fallecido_nombre_completo }}</td>
-            <td>{{ cert.cliente_nombre_completo }}</td>
-            <td><small class="text-muted">{{ cert.tipo_certificado or "-" }}</small></td>
-            <td><small class="text-muted">{{ cert.empresa or "-" }}</small></td>
-            <td>{% with status=cert.status %}{% include "certificates/_status_badge.html" %}{% endwith %}</td>
-            <td>{{ cert.created_at.strftime("%Y-%m-%d") }}</td>
-            <td class="text-nowrap">
-                {# "Ver" opens the certificate in Word format #}
-                <a href="/certificates/{{ cert.id }}/preview" class="btn btn-primary btn-sm">Ver</a>
-                {# Gear for data/management view (asesor/admin only) #}
-                {% if current_user.role.value in ("asesor", "admin") %}
-                <a href="/certificates/{{ cert.id }}" class="btn btn-outline-secondary btn-sm" title="Gestionar datos">⚙</a>
-                {% endif %}
-            </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="avatar-initials">
+                {{ cert.fallecido_nombre_completo[:2].upper() if cert.fallecido_nombre_completo else "?" }}
+              </span>
+              <span class="fw-semibold">{{ cert.fallecido_nombre_completo }}</span>
+            </div>
+          </td>
+          <td style="color:var(--c-muted); font-size:13px">{{ cert.cliente_nombre_completo }}</td>
+          <td style="font-size:12.5px; color:var(--c-muted);">{{ cert.tipo_certificado or "—" }}</td>
+          <td style="font-size:12.5px; color:var(--c-muted);">{{ cert.empresa or "—" }}</td>
+          <td>
+            {% set s = cert.status.value %}
+            <span class="badge-status badge-{{ s }}">
+              {% if s == "draft" %}Borrador
+              {% elif s == "pending" %}Pendiente
+              {% elif s == "approved" %}Aprobado
+              {% elif s == "rejected" %}Rechazado
+              {% else %}{{ s }}{% endif %}
+            </span>
+          </td>
+          <td style="font-size:12.5px; color:var(--c-muted);">
+            {{ cert.created_at.strftime("%d/%m/%Y") }}
+          </td>
+          <td class="text-nowrap">
+            <a href="/certificates/{{ cert.id }}/preview" class="btn btn-primary btn-sm">
+              <i class="bi bi-eye me-1"></i>Ver
+            </a>
+            {% if current_user.role.value in ("asesor", "admin") %}
+            <a href="/certificates/{{ cert.id }}"
+               class="btn btn-outline-secondary btn-sm ms-1"
+               title="Gestionar datos">
+              <i class="bi bi-gear"></i>
+            </a>
+            {% endif %}
+          </td>
         </tr>
         {% else %}
-        <tr><td colspan="7" class="text-muted text-center py-3">No hay solicitudes todavía.</td></tr>
+        <tr>
+          <td colspan="7">
+            <div class="text-center py-5">
+              <i class="bi bi-inbox" style="font-size:36px; color:#cbd5e1;"></i>
+              <p class="mt-2 mb-1 fw-semibold text-muted">No hay solicitudes</p>
+              {% if current_user.role.value in ("asesor", "admin") %}
+              <a href="/certificates/new" class="btn btn-primary btn-sm mt-2">
+                <i class="bi bi-plus-circle me-1"></i>Crear primera solicitud
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
         {% endfor %}
-    </tbody>
-</table>
+      </tbody>
+    </table>
+  </div>
 </div>
+
 {% endblock %}

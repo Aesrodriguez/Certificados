@@ -1,123 +1,147 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Clara Certificados{% endblock %}</title>
-    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/static/css/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="/static/css/custom.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Clara Certificados{% endblock %}</title>
+  <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/css/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/custom.css" rel="stylesheet">
 </head>
 <body>
 
 {% if current_user is defined and current_user %}
 
-{# ── Top bar ──────────────────────────────────────────────────────────── #}
+{# ──────────────────────────────────────────────────────────────────────────
+   TOP BAR
+   ────────────────────────────────────────────────────────────────────────── #}
 <header class="app-topbar">
-    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menú">
-        <i class="bi bi-list"></i>
-    </button>
-    <a href="/" class="app-brand">
-        <span class="brand-logo">🌿</span>
-        Clara Certificados
-    </a>
-    <div class="app-topbar-right">
-        <span class="user-name d-none d-sm-inline">{{ current_user.full_name }}</span>
-        <span class="role-pill role-{{ current_user.role.value }}">{{ current_user.role.value }}</span>
-        <form method="post" action="/logout" class="m-0">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn-logout">
-                <i class="bi bi-box-arrow-right"></i> Salir
-            </button>
-        </form>
-    </div>
+
+  {# Brand (visible on desktop inside topbar, aligned with sidebar) #}
+  <a href="/" class="topbar-sidebar-brand">
+    <span class="brand-icon">🌿</span>
+    <span class="brand-name">
+      Clara Certificados
+      <small>Grupo Recordar</small>
+    </span>
+  </a>
+
+  {# Hamburger — only shown on mobile #}
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menú">
+    <i class="bi bi-list"></i>
+  </button>
+
+  <div class="topbar-right">
+    <span class="topbar-username d-none d-sm-inline">{{ current_user.full_name }}</span>
+    <span class="role-pill role-{{ current_user.role.value }}">{{ current_user.role.value }}</span>
+    <form method="post" action="/logout" class="m-0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn-topbar-logout">
+        <i class="bi bi-box-arrow-right"></i>
+        <span class="d-none d-sm-inline">Salir</span>
+      </button>
+    </form>
+  </div>
 </header>
 
-{# ── App layout ───────────────────────────────────────────────────────── #}
-<div class="app-layout">
+{# ──────────────────────────────────────────────────────────────────────────
+   APP WRAPPER  (sidebar + main, below topbar)
+   ────────────────────────────────────────────────────────────────────────── #}
+<div class="app-wrapper">
 
-    {# ── Sidebar ───────────────────────────────────────────────────────── #}
-    <aside class="app-sidebar" id="appSidebar">
-        <nav class="sidebar-nav">
+  {# ── SIDEBAR ─────────────────────────────────────────────────────────── #}
+  <aside class="app-sidebar" id="appSidebar">
+    <nav class="sidebar-nav">
 
-            {# -- Certificados section -- #}
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">Certificados</div>
+      {# ── Certificados ── #}
+      <div class="sidebar-section">
+        <div class="sidebar-label">Certificados</div>
 
-                {% if current_user.role.value in ("asesor", "admin") %}
-                <a href="/certificates/new"
-                   class="sidebar-link {% if request.url.path == '/certificates/new' %}active{% endif %}">
-                    <i class="bi bi-plus-circle-fill"></i>
-                    Nueva solicitud
-                </a>
-                {% endif %}
-
-                <a href="/certificates"
-                   class="sidebar-link {% if request.url.path == '/certificates' %}active{% endif %}">
-                    <i class="bi bi-file-earmark-text"></i>
-                    {% if current_user.role.value == "asesor" %}Mis certificados
-                    {% else %}Todos los certificados{% endif %}
-                </a>
-
-                {% if current_user.role.value in ("revisor", "admin") %}
-                <a href="/certificates"
-                   class="sidebar-link {% if request.url.path.startswith('/certificates/') and 'new' not in request.url.path and 'edit' not in request.url.path %}active{% endif %}">
-                    <i class="bi bi-clock-history"></i>
-                    Pendientes de revisión
-                </a>
-                {% endif %}
-            </div>
-
-            {# -- Admin section -- #}
-            {% if current_user.role.value == "admin" %}
-            <hr class="sidebar-divider">
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">Administración</div>
-                <a href="/admin/users"
-                   class="sidebar-link {% if request.url.path.startswith('/admin/users') %}active{% endif %}">
-                    <i class="bi bi-people-fill"></i>
-                    Usuarios
-                </a>
-                <a href="/admin/audit-log"
-                   class="sidebar-link {% if request.url.path.startswith('/admin/audit') %}active{% endif %}">
-                    <i class="bi bi-journal-bookmark-fill"></i>
-                    Auditoría
-                </a>
-            </div>
-            {% endif %}
-
-        </nav>
-        <div class="sidebar-footer">Clara Certificados &copy; 2026</div>
-    </aside>
-
-    {# Mobile overlay #}
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    {# ── Main content ──────────────────────────────────────────────────── #}
-    <main class="app-content">
-        {% if request.query_params.get('msg') %}
-        <div class="alert alert-info alert-dismissible fade show app-alert" role="alert">
-            {{ request.query_params.get('msg') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-        </div>
+        {% if current_user.role.value in ("asesor", "admin") %}
+        <a href="/certificates/new"
+           class="sidebar-link {% if request.url.path == '/certificates/new' %}active{% endif %}">
+          <i class="bi bi-plus-circle-fill"></i>
+          Nueva solicitud
+        </a>
         {% endif %}
-        {% block content %}{% endblock %}
-    </main>
 
-</div>{# end .app-layout #}
+        <a href="/certificates"
+           class="sidebar-link {% if request.url.path == '/certificates' and not request.url.query %}active{% endif %}">
+          <i class="bi bi-file-earmark-text"></i>
+          {% if current_user.role.value == "asesor" %}Mis solicitudes
+          {% else %}Todas las solicitudes{% endif %}
+        </a>
+
+        {% if current_user.role.value in ("revisor", "admin") %}
+        <a href="/certificates?status=pending"
+           class="sidebar-link {% if 'status=pending' in request.url.query %}active{% endif %}">
+          <i class="bi bi-clock-history"></i>
+          Pendientes de revisión
+          {% if pending_count is defined and pending_count %}
+          <span class="sidebar-badge">{{ pending_count }}</span>
+          {% endif %}
+        </a>
+        {% endif %}
+
+      </div>
+
+      {# ── Admin ── #}
+      {% if current_user.role.value == "admin" %}
+      <hr class="sidebar-divider">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Administración</div>
+        <a href="/admin/users"
+           class="sidebar-link {% if request.url.path.startswith('/admin/users') %}active{% endif %}">
+          <i class="bi bi-people-fill"></i>
+          Usuarios
+        </a>
+        <a href="/admin/audit-log"
+           class="sidebar-link {% if request.url.path.startswith('/admin/audit') %}active{% endif %}">
+          <i class="bi bi-journal-bookmark-fill"></i>
+          Auditoría
+        </a>
+      </div>
+      {% endif %}
+
+    </nav>
+    <div class="sidebar-footer">© 2026 Clara Certificados</div>
+  </aside>
+
+  {# ── MAIN CONTENT ─────────────────────────────────────────────────────── #}
+  <main class="app-main">
+    <div class="app-content">
+
+      {% if request.query_params.get('msg') %}
+      <div class="alert alert-info alert-dismissible fade show app-flash" role="alert">
+        <i class="bi bi-info-circle me-2"></i>{{ request.query_params.get('msg') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+      </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+
+    </div>
+  </main>
+
+</div>{# end .app-wrapper #}
+
+{# Mobile overlay #}
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 {% else %}
 
-{# ── Auth pages (no sidebar) ─────────────────────────────────────────── #}
+{# ──────────────────────────────────────────────────────────────────────────
+   AUTH PAGES (sin sidebar)
+   ────────────────────────────────────────────────────────────────────────── #}
 <div class="auth-wrapper">
-    <div class="auth-card">
-        <div class="auth-logo">
-            <div class="auth-logo-icon">🌿</div>
-            <div class="auth-title">Clara Certificados</div>
-            <div class="auth-subtitle">{% block auth_subtitle %}{% endblock %}</div>
-        </div>
-        {% block content %}{% endblock %}
+  <div class="auth-card">
+    <div class="auth-logo-wrap">
+      <div class="auth-logo-icon">🌿</div>
+      <div class="auth-title">Clara Certificados</div>
+      <div class="auth-subtitle">{% block auth_subtitle %}{% endblock %}</div>
     </div>
+    {% block content %}{% endblock %}
+  </div>
 </div>
 
 {% endif %}
@@ -125,20 +149,21 @@
 <script src="/static/js/bootstrap.bundle.min.js"></script>
 <script src="/static/js/confirm-actions.js"></script>
 <script>
-    // Mobile sidebar toggle
-    const toggle   = document.getElementById('sidebarToggle');
-    const sidebar  = document.getElementById('appSidebar');
-    const overlay  = document.getElementById('sidebarOverlay');
-    if (toggle && sidebar && overlay) {
-        toggle.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('open');
-        });
-        overlay.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-            overlay.classList.remove('open');
-        });
-    }
+  // Mobile sidebar toggle
+  const toggle  = document.getElementById('sidebarToggle');
+  const sidebar = document.getElementById('appSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (toggle && sidebar && overlay) {
+    toggle.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('open');
+    });
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('open');
+    });
+  }
 </script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

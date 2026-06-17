@@ -1,2 +1,8 @@
-{% set badge_class = {"draft": "secondary", "pending": "warning", "approved": "success", "rejected": "danger"} %}
-<span class="badge text-bg-{{ badge_class.get(status.value, 'secondary') }}">{{ status.value }}</span>
+{% set s = status.value %}
+<span class="badge-status badge-{{ s }}">
+  {% if s == "draft" %}Borrador
+  {% elif s == "pending" %}Pendiente
+  {% elif s == "approved" %}Aprobado
+  {% elif s == "rejected" %}Rechazado
+  {% else %}{{ s }}{% endif %}
+</span>

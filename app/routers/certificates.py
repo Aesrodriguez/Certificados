@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 
 import pydantic
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,10 +43,14 @@ async def list_certificates(
     request: Request,
     db: AsyncSession = Depends(get_db),
     session: DbSession = Depends(get_current_session),
+    status_filter: str | None = Query(None, alias="status"),
 ):
     certs = await certificate_service.list_for_user(db, session.user)
+    if status_filter:
+        certs = [c for c in certs if c.status.value == status_filter]
     return templates.TemplateResponse(
-        request, "certificates/list.html", _ctx(session, certs=certs)
+        request, "certificates/list.html",
+        _ctx(session, certs=certs, status_filter=status_filter)
     )
 
 
