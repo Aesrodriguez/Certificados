@@ -185,11 +185,17 @@ async def consume_password_reset_token(
     if reset_token is None or not reset_token.user.is_active:
         return None
 
+    # Capture user_id before commit — accessing a relationship attribute after
+    # commit triggers an async lazy-load that raises MissingGreenlet.
+    user_id = reset_token.user.id
     reset_token.used_at = now
     reset_token.user.hashed_password = hash_password(new_password)
     reset_token.user.failed_login_attempts = 0
     reset_token.user.locked_until = None
     await db.commit()
 
-    await revoke_all_sessions_for_user(db, reset_token.user.id)
-    return reset_token.user
+    await revoke_all_sessions_for_user(db, user_id)
+
+    # Re-fetch the user so the caller gets a non-expired object.
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    return user_result.scalar_one_or_none()
