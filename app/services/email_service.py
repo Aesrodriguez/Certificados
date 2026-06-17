@@ -39,3 +39,32 @@ def send_certificate_email(cert: CertificateRequest, pdf_bytes: bytes) -> None:
         )
     except Exception as exc:
         raise EmailDeliveryError(str(exc)) from exc
+
+
+def send_password_reset_email(to_email: str, full_name: str, reset_url: str) -> None:
+    resend.api_key = settings.RESEND_API_KEY
+    try:
+        resend.Emails.send(
+            {
+                "from": settings.EMAIL_FROM,
+                "to": [to_email],
+                "subject": "Restablecer contraseña - Clara Certificados",
+                "html": f"""
+                <p>Hola {full_name},</p>
+                <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en
+                <strong>Clara Certificados</strong>.</p>
+                <p>
+                  <a href="{reset_url}" style="
+                    display:inline-block;padding:10px 20px;background:#0d6efd;
+                    color:#fff;text-decoration:none;border-radius:4px;">
+                    Restablecer contraseña
+                  </a>
+                </p>
+                <p>Este enlace es válido por <strong>30 minutos</strong>.<br>
+                Si no solicitaste esto, puedes ignorar este mensaje.</p>
+                <p>Clara Certificados</p>
+                """,
+            }
+        )
+    except Exception as exc:
+        raise EmailDeliveryError(str(exc)) from exc

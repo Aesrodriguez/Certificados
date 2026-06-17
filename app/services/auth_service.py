@@ -8,16 +8,19 @@ from app.core.config import settings
 from app.core.security import (
     generate_csrf_secret,
     generate_session_token,
+    hash_password,
     hash_session_token,
     verify_password,
 )
 from app.models.audit_log import AuditActionEnum
+from app.models.password_reset_token import PasswordResetToken
 from app.models.session import Session
 from app.models.user import User
 from app.services.audit_service import log_action
 
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_DURATION = timedelta(minutes=15)
+PASSWORD_RESET_LIFETIME_MINUTES = 30
 
 
 class AuthError(Exception):
@@ -125,3 +128,68 @@ async def revoke_all_sessions_for_user(db: AsyncSession, user_id) -> None:
     for session in result.scalars().all():
         await db.delete(session)
     await db.commit()
+
+
+async def create_password_reset_token(
+    db: AsyncSession, email: str
+) -> tuple[str, User] | None:
+    """Creates a reset token for the given email. Returns (raw_token, user) if the
+    email belongs to an active account, None otherwise. The caller should always
+    show the same success message regardless of the return value."""
+    result = await db.execute(
+        select(User).where(User.email == email, User.is_active == True)
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        return None
+
+    # Invalidate any prior unused tokens for this user
+    existing = await db.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at == None,
+        )
+    )
+    for old_token in existing.scalars().all():
+        old_token.used_at = datetime.now(timezone.utc)
+
+    raw_token = generate_session_token()
+    reset_token = PasswordResetToken(
+        token_hash=hash_session_token(raw_token),
+        user_id=user.id,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_RESET_LIFETIME_MINUTES),
+    )
+    db.add(reset_token)
+    await db.commit()
+    return raw_token, user
+
+
+async def consume_password_reset_token(
+    db: AsyncSession, raw_token: str, new_password: str
+) -> User | None:
+    """Verifies the token, updates the password, and revokes all sessions.
+    Returns the user on success, None if the token is invalid or expired."""
+    token_hash = hash_session_token(raw_token)
+    now = datetime.now(timezone.utc)
+
+    result = await db.execute(
+        select(PasswordResetToken)
+        .where(
+            PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.used_at == None,
+            PasswordResetToken.expires_at > now,
+        )
+        .options(selectinload(PasswordResetToken.user))
+    )
+    reset_token = result.scalar_one_or_none()
+    if reset_token is None or not reset_token.user.is_active:
+        return None
+
+    reset_token.used_at = now
+    reset_token.user.hashed_password = hash_password(new_password)
+    reset_token.user.failed_login_attempts = 0
+    reset_token.user.locked_until = None
+    await db.commit()
+
+    await revoke_all_sessions_for_user(db, reset_token.user.id)
+    return reset_token.user

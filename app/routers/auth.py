@@ -12,6 +12,7 @@ from app.models.audit_log import AuditActionEnum
 from app.models.session import Session as DbSession
 from app.services import auth_service
 from app.services.audit_service import log_action
+from app.services.email_service import EmailDeliveryError, send_password_reset_email
 
 router = APIRouter()
 
@@ -52,6 +53,97 @@ async def login_submit(
         path="/",
     )
     return response
+
+
+@router.get("/forgot-password")
+async def forgot_password_form(request: Request):
+    return templates.TemplateResponse(request, "auth/forgot_password.html", {"sent": False})
+
+
+@router.post("/forgot-password")
+@limiter.limit("5/minute")
+async def forgot_password_submit(
+    request: Request,
+    email: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    ip_address = request.client.host if request.client else None
+    result = await auth_service.create_password_reset_token(db, email)
+    if result is not None:
+        raw_token, user = result
+        reset_url = str(request.base_url).rstrip("/") + f"/reset-password?token={raw_token}"
+        try:
+            send_password_reset_email(user.email, user.full_name, reset_url)
+        except EmailDeliveryError:
+            pass  # silent — never reveal if the email exists
+        await log_action(
+            db,
+            actor_user_id=user.id,
+            action=AuditActionEnum.PASSWORD_RESET_REQUESTED,
+            entity_type="user",
+            entity_id=user.id,
+            ip_address=ip_address,
+        )
+        await db.commit()
+    # Always show the same message (prevents user enumeration)
+    return templates.TemplateResponse(
+        request, "auth/forgot_password.html", {"sent": True}
+    )
+
+
+@router.get("/reset-password")
+async def reset_password_form(request: Request, token: str = ""):
+    return templates.TemplateResponse(
+        request, "auth/reset_password.html", {"token": token, "error": None}
+    )
+
+
+@router.post("/reset-password")
+async def reset_password_submit(
+    request: Request,
+    token: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    ip_address = request.client.host if request.client else None
+    if password != password_confirm:
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_password.html",
+            {"token": token, "error": "Las contraseñas no coinciden."},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    if len(password) < 8:
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_password.html",
+            {"token": token, "error": "La contraseña debe tener al menos 8 caracteres."},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = await auth_service.consume_password_reset_token(db, token, password)
+    if user is None:
+        return templates.TemplateResponse(
+            request,
+            "auth/reset_password.html",
+            {"token": token, "error": "El enlace es inválido o ha expirado. Solicita uno nuevo."},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    await log_action(
+        db,
+        actor_user_id=user.id,
+        action=AuditActionEnum.PASSWORD_RESET_COMPLETED,
+        entity_type="user",
+        entity_id=user.id,
+        ip_address=ip_address,
+    )
+    await db.commit()
+    return RedirectResponse(
+        url="/login?msg=Contraseña restablecida correctamente. Inicia sesión.",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.post("/logout", dependencies=[Depends(verify_csrf)])
