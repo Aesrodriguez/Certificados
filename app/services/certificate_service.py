@@ -41,7 +41,7 @@ def assert_can_view(cert: CertificateRequest, user: User) -> None:
 
 
 def assert_can_edit(cert: CertificateRequest, user: User) -> None:
-    if cert.asesor_id != user.id:
+    if user.role != RoleEnum.ADMIN and cert.asesor_id != user.id:
         raise CertificateServiceError("No tienes acceso a esta solicitud.")
     if cert.status not in EDITABLE_STATUSES:
         raise CertificateServiceError("Esta solicitud ya no se puede editar en su estado actual.")
@@ -106,8 +106,8 @@ async def submit(
 
 
 def assert_can_review(cert: CertificateRequest, revisor: User) -> None:
-    if revisor.role != RoleEnum.REVISOR:
-        raise CertificateServiceError("Solo un Revisor puede aprobar o rechazar solicitudes.")
+    if revisor.role not in (RoleEnum.REVISOR, RoleEnum.ADMIN):
+        raise CertificateServiceError("Solo un Revisor o Administrador puede aprobar o rechazar solicitudes.")
     if cert.status != StatusEnum.PENDING:
         raise CertificateServiceError("Esta solicitud no está pendiente de revisión.")
 

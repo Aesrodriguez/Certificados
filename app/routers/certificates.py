@@ -50,7 +50,7 @@ async def list_certificates(
     )
 
 
-@router.get("/new", dependencies=[Depends(require_role(RoleEnum.ASESOR))])
+@router.get("/new", dependencies=[Depends(require_role(RoleEnum.ASESOR, RoleEnum.ADMIN))])
 async def new_certificate_form(
     request: Request,
     session: DbSession = Depends(get_current_session),
@@ -62,7 +62,7 @@ async def new_certificate_form(
     )
 
 
-@router.post("", dependencies=[Depends(require_role(RoleEnum.ASESOR)), Depends(verify_csrf)])
+@router.post("", dependencies=[Depends(require_role(RoleEnum.ASESOR, RoleEnum.ADMIN)), Depends(verify_csrf)])
 async def create_certificate(
     request: Request,
     db: AsyncSession = Depends(get_db),
@@ -115,8 +115,9 @@ async def certificate_detail(
     )
     await db.commit()
 
-    can_edit = cert.asesor_id == session.user.id and cert.status in certificate_service.EDITABLE_STATUSES
-    can_review = session.user.role == RoleEnum.REVISOR and cert.status.value == "pending"
+    is_admin = session.user.role == RoleEnum.ADMIN
+    can_edit = (is_admin or cert.asesor_id == session.user.id) and cert.status in certificate_service.EDITABLE_STATUSES
+    can_review = session.user.role in (RoleEnum.REVISOR, RoleEnum.ADMIN) and cert.status.value == "pending"
     return templates.TemplateResponse(
         request,
         "certificates/detail.html",
@@ -124,7 +125,7 @@ async def certificate_detail(
     )
 
 
-@router.get("/{cert_id}/edit", dependencies=[Depends(require_role(RoleEnum.ASESOR))])
+@router.get("/{cert_id}/edit", dependencies=[Depends(require_role(RoleEnum.ASESOR, RoleEnum.ADMIN))])
 async def edit_certificate_form(
     cert_id: uuid.UUID,
     request: Request,
@@ -147,7 +148,7 @@ async def edit_certificate_form(
 
 
 @router.post(
-    "/{cert_id}", dependencies=[Depends(require_role(RoleEnum.ASESOR)), Depends(verify_csrf)]
+    "/{cert_id}", dependencies=[Depends(require_role(RoleEnum.ASESOR, RoleEnum.ADMIN)), Depends(verify_csrf)]
 )
 async def update_certificate(
     cert_id: uuid.UUID,
@@ -187,7 +188,7 @@ async def update_certificate(
 
 @router.post(
     "/{cert_id}/submit",
-    dependencies=[Depends(require_role(RoleEnum.ASESOR)), Depends(verify_csrf)],
+    dependencies=[Depends(require_role(RoleEnum.ASESOR, RoleEnum.ADMIN)), Depends(verify_csrf)],
 )
 async def submit_certificate(
     cert_id: uuid.UUID,
@@ -211,7 +212,7 @@ async def submit_certificate(
 
 @router.post(
     "/{cert_id}/approve",
-    dependencies=[Depends(require_role(RoleEnum.REVISOR)), Depends(verify_csrf)],
+    dependencies=[Depends(require_role(RoleEnum.REVISOR, RoleEnum.ADMIN)), Depends(verify_csrf)],
 )
 async def approve_certificate(
     cert_id: uuid.UUID,
@@ -238,7 +239,7 @@ async def approve_certificate(
 
 @router.post(
     "/{cert_id}/reject",
-    dependencies=[Depends(require_role(RoleEnum.REVISOR)), Depends(verify_csrf)],
+    dependencies=[Depends(require_role(RoleEnum.REVISOR, RoleEnum.ADMIN)), Depends(verify_csrf)],
 )
 async def reject_certificate(
     cert_id: uuid.UUID,
