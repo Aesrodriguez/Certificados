@@ -1,5 +1,4 @@
 import logging
-import smtplib
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -17,10 +16,10 @@ from app.routers import admin, audit, auth, certificates, dashboard
 configure_logging()
 logger = logging.getLogger(__name__)
 
-if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+if not settings.gmail_configured:
     logger.warning(
-        "EMAIL NOT CONFIGURED: set SMTP_USER (correo Gmail) and SMTP_PASSWORD "
-        "(App Password de Gmail) in Render environment variables."
+        "EMAIL NOT CONFIGURED: set GMAIL_SENDER, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET "
+        "and GMAIL_REFRESH_TOKEN in Render environment variables."
     )
 
 app = FastAPI(title="Clara Certificados")
@@ -54,30 +53,37 @@ async def healthz():
     return {"status": "ok"}
 
 
-@app.get("/debug/smtp")
-async def debug_smtp():
-    """Temporary: tests Gmail SMTP config. Remove after email is confirmed working."""
+@app.get("/debug/gmail")
+async def debug_gmail():
+    """Temporary: tests Gmail API OAuth2 config. Remove after email is confirmed working."""
+    import httpx as _httpx
+
     result = {
-        "smtp_user": settings.SMTP_USER or "(not set)",
-        "smtp_password_set": bool(settings.SMTP_PASSWORD),
-        "smtp_password_length": len(settings.SMTP_PASSWORD),
+        "gmail_sender": settings.GMAIL_SENDER or "(not set)",
+        "client_id_set": bool(settings.GMAIL_CLIENT_ID),
+        "client_secret_set": bool(settings.GMAIL_CLIENT_SECRET),
+        "refresh_token_set": bool(settings.GMAIL_REFRESH_TOKEN),
     }
 
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        result["status"] = "ERROR: SMTP_USER o SMTP_PASSWORD no configurados en Render"
+    if not settings.gmail_configured:
+        result["status"] = "ERROR: faltan variables GMAIL_* en Render"
         return result
 
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        result["status"] = "OK - autenticación Gmail exitosa"
-    except smtplib.SMTPAuthenticationError as e:
-        result["status"] = f"ERROR AUTH: {e.smtp_code} - {e.smtp_error.decode()}"
-    except smtplib.SMTPException as e:
-        result["status"] = f"ERROR SMTP: {e}"
+        resp = _httpx.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": settings.GMAIL_CLIENT_ID,
+                "client_secret": settings.GMAIL_CLIENT_SECRET,
+                "refresh_token": settings.GMAIL_REFRESH_TOKEN,
+                "grant_type": "refresh_token",
+            },
+            timeout=10,
+        )
+        if resp.status_code == 200 and resp.json().get("access_token"):
+            result["status"] = "OK - token de acceso obtenido correctamente"
+        else:
+            result["status"] = f"ERROR ({resp.status_code}): {resp.text}"
     except Exception as e:
         result["status"] = f"ERROR: {type(e).__name__}: {e}"
 

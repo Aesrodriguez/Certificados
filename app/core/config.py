@@ -15,14 +15,11 @@ class Settings(BaseSettings):
     SESSION_COOKIE_NAME: str = "clara_session"
     SESSION_LIFETIME_MINUTES: int = 720
 
-    RESEND_API_KEY: str = ""
-    EMAIL_FROM: str = "Clara Certificados <certificados@example.com>"
-
-    # Gmail SMTP (free, no domain required)
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""      # tu correo Gmail
-    SMTP_PASSWORD: str = ""  # App Password de Gmail (no la contraseña normal)
+    # Gmail API (OAuth2) — usa HTTPS, funciona en Render free tier
+    GMAIL_SENDER: str = ""         # tu correo Gmail (ej: andres@gmail.com)
+    GMAIL_CLIENT_ID: str = ""
+    GMAIL_CLIENT_SECRET: str = ""
+    GMAIL_REFRESH_TOKEN: str = ""
 
     ADMIN_EMAIL: str = ""
     ADMIN_PASSWORD: str = ""
@@ -31,6 +28,15 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENV == "production"
+
+    @property
+    def gmail_configured(self) -> bool:
+        return bool(
+            self.GMAIL_SENDER
+            and self.GMAIL_CLIENT_ID
+            and self.GMAIL_CLIENT_SECRET
+            and self.GMAIL_REFRESH_TOKEN
+        )
 
 
 @lru_cache
