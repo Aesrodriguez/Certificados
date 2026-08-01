@@ -75,7 +75,7 @@ async def new_certificate_form(
     return templates.TemplateResponse(
         request,
         "certificates/form.html",
-        _ctx(session, cert=None, error=None, form_action="/certificates"),
+        _ctx(session, cert=None, field_errors={}, form_action="/certificates"),
     )
 
 
@@ -95,7 +95,7 @@ async def create_certificate(
             _ctx(
                 session,
                 cert=dict(form),
-                error=_format_errors(exc),
+                field_errors=_field_errors(exc),
                 form_action="/certificates",
             ),
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -205,7 +205,7 @@ async def edit_certificate_form(
     return templates.TemplateResponse(
         request,
         "certificates/form.html",
-        _ctx(session, cert=cert, error=None, form_action=f"/certificates/{cert.id}"),
+        _ctx(session, cert=cert, field_errors={}, form_action=f"/certificates/{cert.id}"),
     )
 
 
@@ -232,7 +232,7 @@ async def update_certificate(
             _ctx(
                 session,
                 cert=dict(form),
-                error=_format_errors(exc),
+                field_errors=_field_errors(exc),
                 form_action=f"/certificates/{cert_id}",
             ),
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -451,5 +451,17 @@ async def resend_certificate_email(
     return RedirectResponse(url=url, status_code=status.HTTP_303_SEE_OTHER)
 
 
-def _format_errors(exc: pydantic.ValidationError) -> str:
-    return "; ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors())
+_GENERIC_MSGS = {"Field required", "String should have at least 1 character"}
+
+
+def _field_errors(exc: pydantic.ValidationError) -> dict[str, str]:
+    errors: dict[str, str] = {}
+    for e in exc.errors():
+        field = str(e["loc"][0]) if e["loc"] else "__root__"
+        msg = e["msg"]
+        if msg.startswith("Value error, "):
+            msg = msg[len("Value error, "):]
+        if msg in _GENERIC_MSGS:
+            msg = ""
+        errors.setdefault(field, msg)
+    return errors
