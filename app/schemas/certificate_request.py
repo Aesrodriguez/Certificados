@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 TipoDocumento = Literal["CC", "CE", "TI", "PAS", "RC"]
 
@@ -14,6 +14,27 @@ TIPOS_CERTIFICADO = [
 ]
 
 EMPRESAS = ["RECORDAR", "PARQUES Y FUNERARIAS"]
+
+# Servicios por empresa — el fragmento en minúsculas debe coincidir con
+# la lógica de get_lineas_servicio en pdf_service.py
+SERVICIOS_RECORDAR = [
+    "SERVICIO FUNERARIO CON TRANSPORTE, VELACIÓN Y MISA",
+    "SERVICIO FUNERARIO CON TRANSPORTE Y VELACIÓN",
+    "SERVICIO FUNERARIO",
+]
+
+SERVICIOS_PYF = [
+    "SERVICIO FUNERARIO CREMACIÓN",
+    "SERVICIO FUNERARIO GRAN EXTRA",
+    "SERVICIO FUNERARIO ESTILO J",
+    "SERVICIO FUNERARIO ESTILO K",
+    "SERVICIO FUNERARIO ESTILO L",
+    "SERVICIO FUNERARIO ESTÁNDAR",
+]
+
+TODOS_LOS_SERVICIOS = SERVICIOS_RECORDAR + [
+    s for s in SERVICIOS_PYF if s not in SERVICIOS_RECORDAR
+]
 
 
 class CertificateRequestIn(BaseModel):
@@ -57,3 +78,23 @@ class CertificateRequestIn(BaseModel):
     # Metadatos
     plan_o_poliza: str | None = Field(default=None, max_length=100)
     observaciones: str | None = None
+
+    @field_validator("fallecido_fecha_nacimiento", mode="before")
+    @classmethod
+    def nacimiento_no_futuro(cls, v):
+        if v is None or v == "":
+            return None
+        d = v if isinstance(v, date) else date.fromisoformat(str(v))
+        if d > date.today():
+            raise ValueError("La fecha de nacimiento no puede ser futura.")
+        return d
+
+    @field_validator("fallecido_fecha_fallecimiento", mode="before")
+    @classmethod
+    def fallecimiento_no_futuro(cls, v):
+        if v is None or v == "":
+            raise ValueError("La fecha de fallecimiento es obligatoria.")
+        d = v if isinstance(v, date) else date.fromisoformat(str(v))
+        if d > date.today():
+            raise ValueError("La fecha de fallecimiento no puede ser futura.")
+        return d
