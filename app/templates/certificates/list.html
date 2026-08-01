@@ -74,6 +74,7 @@
             <button type="button"
                     class="btn btn-primary btn-sm"
                     data-cert-id="{{ cert.id }}"
+                    onclick="verCert(this.getAttribute('data-cert-id'))"
                     data-bs-toggle="modal"
                     data-bs-target="#certModal">
               <i class="bi bi-eye me-1"></i>Ver
@@ -297,7 +298,10 @@ function resetModal() {
   if (editLink) editLink.style.display = 'none';
 }
 
+var _activeCertId = null;
+
 function verCert(id) {
+  _activeCertId = id;
   resetModal();
 
   fetch('/certificates/' + id + '/quick')
@@ -342,17 +346,17 @@ function verCert(id) {
     })
     .catch(function(err) {
       setText('mFallecido', 'Error al cargar (' + (err.message || err) + ')');
-    });
+    })
+    .finally(function() { _activeCertId = null; });
 }
 
-/* Bootstrap dispara show.bs.modal justo antes de abrir el modal.
-   event.relatedTarget es el botón que lo activó. */
+/* Respaldo Bootstrap: show.bs.modal en caso de que onclick no dispare */
 var certModalEl = document.getElementById('certModal');
 if (certModalEl) {
   certModalEl.addEventListener('show.bs.modal', function(event) {
     var btn = event.relatedTarget;
     var id  = btn ? btn.getAttribute('data-cert-id') : null;
-    if (id) verCert(id);
+    if (id && id !== _activeCertId) verCert(id);
   });
 }
 </script>
