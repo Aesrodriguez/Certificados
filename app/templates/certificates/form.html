@@ -80,14 +80,16 @@
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Número documento <span class="text-danger">*</span></label>
-                    <input class="form-control" name="cliente_numero_documento"
+                    <input class="form-control solo-nums" name="cliente_numero_documento"
+                           inputmode="numeric"
                            value="{{ val('cliente_numero_documento') }}" required
                            data-msg="El número de documento del solicitante es obligatorio.">
                     <div class="invalid-feedback">El número de documento del solicitante es obligatorio.</div>
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Teléfono <span class="text-danger">*</span></label>
-                    <input class="form-control" name="cliente_telefono"
+                    <input class="form-control solo-nums" name="cliente_telefono"
+                           inputmode="numeric"
                            value="{{ val('cliente_telefono') }}" required
                            data-msg="El teléfono es obligatorio.">
                     <div class="invalid-feedback">El teléfono es obligatorio.</div>
@@ -140,7 +142,8 @@
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Número documento <span class="text-danger">*</span></label>
-                    <input class="form-control" name="fallecido_numero_documento"
+                    <input class="form-control solo-nums" name="fallecido_numero_documento"
+                           inputmode="numeric"
                            value="{{ val('fallecido_numero_documento') }}" required
                            data-msg="El número de documento del fallecido es obligatorio.">
                     <div class="invalid-feedback">El número de documento del fallecido es obligatorio.</div>
@@ -245,7 +248,8 @@
             <div class="row">
                 <div class="col-md-4 mb-2">
                     <label class="form-label">N.º Recibo de caja</label>
-                    <input class="form-control" name="numero_recibo_caja" value="{{ val('numero_recibo_caja') }}">
+                    <input class="form-control solo-nums" name="numero_recibo_caja"
+                           inputmode="numeric" value="{{ val('numero_recibo_caja') }}">
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Contrato</label>
@@ -261,7 +265,8 @@
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Número de aviso</label>
-                    <input class="form-control" name="numero_aviso" value="{{ val('numero_aviso') }}">
+                    <input class="form-control solo-nums" name="numero_aviso"
+                           inputmode="numeric" value="{{ val('numero_aviso') }}">
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Plan o póliza</label>
@@ -284,6 +289,29 @@
 
 {% block extra_js %}
 <script>
+/* ── Solo dígitos en campos numéricos ── */
+document.querySelectorAll('.solo-nums').forEach(function(el) {
+  el.addEventListener('input', function() {
+    var pos = this.selectionStart;
+    var prev = this.value;
+    this.value = prev.replace(/\D/g, '');
+    /* Ajustar cursor si se eliminaron caracteres */
+    if (this.value.length < prev.length) {
+      this.setSelectionRange(pos - 1, pos - 1);
+    }
+  });
+  el.addEventListener('keydown', function(e) {
+    /* Permitir: teclas de control, flechas, backspace, delete, tab, enter */
+    var allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown',
+                   'Tab','Enter','Home','End'];
+    if (allowed.indexOf(e.key) !== -1) return;
+    /* Permitir Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X */
+    if (e.ctrlKey || e.metaKey) return;
+    /* Bloquear cualquier tecla que no sea dígito */
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  });
+});
+
 /* ── Filtrar servicios según empresa seleccionada ── */
 var svcRecordar = document.querySelectorAll('.opt-recordar');
 var svcPyf      = document.querySelectorAll('.opt-pyf');
