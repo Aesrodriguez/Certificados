@@ -107,6 +107,51 @@ async def create_certificate(
     return RedirectResponse(url=f"/certificates/{cert.id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
+@router.get("/{cert_id}/quick")
+async def certificate_quick_view(
+    cert_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    session: DbSession = Depends(get_current_session),
+):
+    """Returns minimal cert data as JSON for the quick-view modal."""
+    cert = await certificate_service.get_or_none(db, cert_id)
+    if cert is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    try:
+        certificate_service.assert_can_view(cert, session.user)
+    except certificate_service.CertificateServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    from fastapi.responses import JSONResponse
+    from datetime import date as _date
+
+    def _d(val) -> str | None:
+        if val is None:
+            return None
+        if isinstance(val, _date):
+            return val.strftime("%d/%m/%Y")
+        return str(val)
+
+    return JSONResponse({
+        "id":        str(cert.id),
+        "fallecido": cert.fallecido_nombre_completo or "",
+        "fdoc":      cert.fallecido_numero_documento or "",
+        "ffecha":    _d(cert.fallecido_fecha_fallecimiento) or "—",
+        "cliente":   cert.cliente_nombre_completo or "",
+        "cdoc":      cert.cliente_numero_documento or "",
+        "cemail":    cert.cliente_email or "",
+        "tipo":      cert.tipo_certificado or "—",
+        "empresa":   cert.empresa or "—",
+        "contrato":  cert.numero_contrato or "—",
+        "recibo":    cert.numero_recibo_caja or "—",
+        "aviso":     cert.numero_aviso or "—",
+        "afiliacion": _d(cert.fecha_afiliacion) or "—",
+        "obs":       cert.observaciones or "",
+        "status":    cert.status.value,
+        "fecha":     _d(cert.created_at),
+    })
+
+
 @router.get("/{cert_id}")
 async def certificate_detail(
     cert_id: uuid.UUID,

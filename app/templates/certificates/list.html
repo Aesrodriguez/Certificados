@@ -71,7 +71,6 @@
             {{ cert.created_at.strftime("%d/%m/%Y") }}
           </td>
           <td>
-            {# "Ver" abre el modal rápido — ID en atributo simple, datos en CERTS{} #}
             <button type="button"
                     class="btn btn-primary btn-sm"
                     onclick="verCert('{{ cert.id }}')"
@@ -258,73 +257,58 @@
 
 {% block extra_js %}
 <script>
-/* Todos los datos del certificado en un objeto JSON — evita problemas de
-   encoding de atributos HTML con caracteres especiales (tildes, comillas). */
-var CERTS = {
-{% for cert in certs %}
-  "{{ cert.id }}": {
-    fallecido : {{ (cert.fallecido_nombre_completo  or '') | tojson }},
-    fdoc      : {{ (cert.fallecido_numero_documento or '') | tojson }},
-    ffecha    : {{ (cert.fallecido_fecha_fallecimiento.strftime('%d/%m/%Y') if cert.fallecido_fecha_fallecimiento else '—') | tojson }},
-    cliente   : {{ (cert.cliente_nombre_completo    or '') | tojson }},
-    cdoc      : {{ (cert.cliente_numero_documento   or '') | tojson }},
-    cemail    : {{ (cert.cliente_email              or '') | tojson }},
-    tipo      : {{ (cert.tipo_certificado           or '—') | tojson }},
-    empresa   : {{ (cert.empresa                    or '—') | tojson }},
-    contrato  : {{ (cert.numero_contrato            or '—') | tojson }},
-    recibo    : {{ (cert.numero_recibo_caja         or '—') | tojson }},
-    aviso     : {{ (cert.numero_aviso               or '—') | tojson }},
-    afiliacion: {{ (cert.fecha_afiliacion.strftime('%d/%m/%Y') if cert.fecha_afiliacion else '—') | tojson }},
-    obs       : {{ (cert.observaciones              or '') | tojson }},
-    status    : {{ cert.status.value | tojson }},
-    fecha     : {{ cert.created_at.strftime('%d/%m/%Y') | tojson }}
-  }{% if not loop.last %},{% endif %}
-
-{% endfor %}
-};
+var statusLabels = {draft:'Borrador', pending:'Pendiente', approved:'Aprobado', rejected:'Rechazado'};
+var statusColors = {draft:'badge-draft', pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected'};
 
 function verCert(id) {
-  var d = CERTS[id];
-  if (!d) return;
-  var s = d.status;
+  /* Limpia el modal mientras carga */
+  document.getElementById('mFallecido').textContent = '…';
+  document.getElementById('mFecha').textContent     = '';
+  document.getElementById('mStatusBadge').textContent = '';
 
-  var statusLabels = {draft:'Borrador', pending:'Pendiente', approved:'Aprobado', rejected:'Rechazado'};
-  var statusColors = {draft:'badge-draft', pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected'};
+  fetch('/certificates/' + id + '/quick')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var s = d.status;
 
-  document.getElementById('mFallecido').textContent      = d.fallecido;
-  document.getElementById('mFecha').textContent          = d.fecha;
+      document.getElementById('mFallecido').textContent       = d.fallecido;
+      document.getElementById('mFecha').textContent           = d.fecha;
 
-  var badge = document.getElementById('mStatusBadge');
-  badge.className   = 'badge-status ' + (statusColors[s] || '');
-  badge.textContent = statusLabels[s] || s;
+      var badge = document.getElementById('mStatusBadge');
+      badge.className   = 'badge-status ' + (statusColors[s] || '');
+      badge.textContent = statusLabels[s] || s;
 
-  document.getElementById('mTipo').textContent           = d.tipo;
-  document.getElementById('mEmpresa').textContent        = d.empresa;
+      document.getElementById('mTipo').textContent            = d.tipo;
+      document.getElementById('mEmpresa').textContent         = d.empresa;
 
-  document.getElementById('mFallecidoNombre').textContent = d.fallecido;
-  document.getElementById('mFallecidoDoc').textContent   = d.fdoc;
-  document.getElementById('mFallecidoFecha').textContent = d.ffecha;
-  document.getElementById('mAfiliacion').textContent     = d.afiliacion;
+      document.getElementById('mFallecidoNombre').textContent = d.fallecido;
+      document.getElementById('mFallecidoDoc').textContent    = d.fdoc;
+      document.getElementById('mFallecidoFecha').textContent  = d.ffecha;
+      document.getElementById('mAfiliacion').textContent      = d.afiliacion;
 
-  document.getElementById('mClienteNombre').textContent  = d.cliente;
-  document.getElementById('mClienteDoc').textContent     = d.cdoc;
-  document.getElementById('mClienteEmail').textContent   = d.cemail;
+      document.getElementById('mClienteNombre').textContent   = d.cliente;
+      document.getElementById('mClienteDoc').textContent      = d.cdoc;
+      document.getElementById('mClienteEmail').textContent    = d.cemail;
 
-  document.getElementById('mContrato').textContent       = d.contrato;
-  document.getElementById('mRecibo').textContent         = d.recibo;
-  document.getElementById('mAviso').textContent          = d.aviso;
+      document.getElementById('mContrato').textContent        = d.contrato;
+      document.getElementById('mRecibo').textContent          = d.recibo;
+      document.getElementById('mAviso').textContent           = d.aviso;
 
-  document.getElementById('mObs').textContent            = d.obs;
-  document.getElementById('mObsWrap').style.display      = d.obs ? 'block' : 'none';
+      document.getElementById('mObs').textContent             = d.obs;
+      document.getElementById('mObsWrap').style.display       = d.obs ? 'block' : 'none';
 
-  document.getElementById('mPreviewLink').href = '/certificates/' + id + '/preview';
+      document.getElementById('mPreviewLink').href = '/certificates/' + id + '/preview';
 
-  var editLink = document.getElementById('mEditLink');
-  if (editLink) {
-    var canEdit = (s === 'draft' || s === 'rejected');
-    editLink.href         = '/certificates/' + id + '/edit';
-    editLink.style.display = canEdit ? 'inline-flex' : 'none';
-  }
+      var editLink = document.getElementById('mEditLink');
+      if (editLink) {
+        var canEdit = (s === 'draft' || s === 'rejected');
+        editLink.href          = '/certificates/' + id + '/edit';
+        editLink.style.display = canEdit ? 'inline-flex' : 'none';
+      }
+    })
+    .catch(function(e) {
+      document.getElementById('mFallecido').textContent = 'Error al cargar';
+    });
 }
 </script>
 {% endblock %}
