@@ -345,14 +345,15 @@ function verCert(id) {
     });
 }
 
-/* Asegurar que el modal abre al hacer clic en el botón Ver */
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('[data-bs-target="#certModal"]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = btn.getAttribute('data-cert-id');
-      if (id) verCert(id);
-    });
+/* Bootstrap dispara show.bs.modal justo antes de abrir el modal.
+   event.relatedTarget es el botón que lo activó. */
+var certModalEl = document.getElementById('certModal');
+if (certModalEl) {
+  certModalEl.addEventListener('show.bs.modal', function(event) {
+    var btn = event.relatedTarget;
+    var id  = btn ? btn.getAttribute('data-cert-id') : null;
+    if (id) verCert(id);
   });
-});
+}
 </script>
 {% endblock %}
