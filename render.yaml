@@ -13,8 +13,8 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
-      - key: RESEND_API_KEY
+      - key: SMTP_USER
         sync: false
-      - key: EMAIL_FROM
+      - key: SMTP_PASSWORD
         sync: false
     healthCheckPath: /healthz

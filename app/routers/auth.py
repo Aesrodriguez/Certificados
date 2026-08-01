@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +15,8 @@ from app.models.session import Session as DbSession
 from app.services import auth_service
 from app.services.audit_service import log_action
 from app.services.email_service import EmailDeliveryError, send_password_reset_email
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -74,8 +78,8 @@ async def forgot_password_submit(
         reset_url = str(request.base_url).rstrip("/") + f"/reset-password?token={raw_token}"
         try:
             await send_password_reset_email(user.email, user.full_name, reset_url)
-        except EmailDeliveryError:
-            pass  # silent — never reveal if the email exists
+        except EmailDeliveryError as exc:
+            logger.error("PASSWORD RESET EMAIL FAILED to %s: %s", user.email, exc)
         await log_action(
             db,
             actor_user_id=user.id,

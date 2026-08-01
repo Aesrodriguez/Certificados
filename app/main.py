@@ -1,3 +1,5 @@
+import logging
+import smtplib
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -6,12 +8,20 @@ from slowapi.errors import RateLimitExceeded
 from starlette.responses import PlainTextResponse
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
+from app.core.config import settings
 from app.core.logging_config import configure_logging
 from app.core.middleware import SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
 from app.routers import admin, audit, auth, certificates, dashboard
 
 configure_logging()
+logger = logging.getLogger(__name__)
+
+if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+    logger.warning(
+        "EMAIL NOT CONFIGURED: set SMTP_USER (correo Gmail) and SMTP_PASSWORD "
+        "(App Password de Gmail) in Render environment variables."
+    )
 
 app = FastAPI(title="Clara Certificados")
 
@@ -46,14 +56,9 @@ async def healthz():
 
 @app.get("/debug/smtp")
 async def debug_smtp():
-    """Temporary: tests SMTP config and returns exact error. Remove after email works."""
-    import smtplib
-    from app.core.config import settings
-
+    """Temporary: tests Gmail SMTP config. Remove after email is confirmed working."""
     result = {
         "smtp_user": settings.SMTP_USER or "(not set)",
-        "smtp_host": settings.SMTP_HOST,
-        "smtp_port": settings.SMTP_PORT,
         "smtp_password_set": bool(settings.SMTP_PASSWORD),
         "smtp_password_length": len(settings.SMTP_PASSWORD),
     }
@@ -63,12 +68,12 @@ async def debug_smtp():
         return result
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
             server.ehlo()
             server.starttls()
             server.ehlo()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        result["status"] = "OK - conexión y autenticación exitosas"
+        result["status"] = "OK - autenticación Gmail exitosa"
     except smtplib.SMTPAuthenticationError as e:
         result["status"] = f"ERROR AUTH: {e.smtp_code} - {e.smtp_error.decode()}"
     except smtplib.SMTPException as e:
