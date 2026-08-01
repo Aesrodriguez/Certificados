@@ -73,7 +73,7 @@
           <td>
             <button type="button"
                     class="btn btn-primary btn-sm"
-                    onclick="verCert('{{ cert.id }}')"
+                    data-cert-id="{{ cert.id }}"
                     data-bs-toggle="modal"
                     data-bs-target="#certModal">
               <i class="bi bi-eye me-1"></i>Ver
@@ -258,57 +258,101 @@
 {% block extra_js %}
 <script>
 var statusLabels = {draft:'Borrador', pending:'Pendiente', approved:'Aprobado', rejected:'Rechazado'};
-var statusColors = {draft:'badge-draft', pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected'};
+var statusColors  = {draft:'badge-draft', pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected'};
+
+/* ── Helpers de reset ── */
+function setText(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = val !== undefined && val !== null ? val : '';
+}
+function setHref(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.href = val;
+}
+function setDisplay(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.style.display = val;
+}
+
+function resetModal() {
+  setText('mFallecido',     'Cargando…');
+  setText('mFecha',         '');
+  setText('mTipo',          '—');
+  setText('mEmpresa',       '—');
+  setText('mFallecidoNombre', '');
+  setText('mFallecidoDoc',  '');
+  setText('mFallecidoFecha','');
+  setText('mAfiliacion',    '');
+  setText('mClienteNombre', '');
+  setText('mClienteDoc',    '');
+  setText('mClienteEmail',  '');
+  setText('mContrato',      '—');
+  setText('mRecibo',        '—');
+  setText('mAviso',         '—');
+  setText('mObs',           '');
+  setDisplay('mObsWrap',    'none');
+  var badge = document.getElementById('mStatusBadge');
+  if (badge) { badge.className = ''; badge.textContent = ''; }
+  var editLink = document.getElementById('mEditLink');
+  if (editLink) editLink.style.display = 'none';
+}
 
 function verCert(id) {
-  /* Limpia el modal mientras carga */
-  document.getElementById('mFallecido').textContent = '…';
-  document.getElementById('mFecha').textContent     = '';
-  document.getElementById('mStatusBadge').textContent = '';
+  resetModal();
 
   fetch('/certificates/' + id + '/quick')
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(function(d) {
-      var s = d.status;
+      var s = d.status || '';
 
-      document.getElementById('mFallecido').textContent       = d.fallecido;
-      document.getElementById('mFecha').textContent           = d.fecha;
+      setText('mFallecido',      d.fallecido || '(sin nombre)');
+      setText('mFecha',          d.fecha     || '');
+      setText('mTipo',           d.tipo      || '—');
+      setText('mEmpresa',        d.empresa   || '—');
+      setText('mFallecidoNombre',d.fallecido || '—');
+      setText('mFallecidoDoc',   d.fdoc      || '—');
+      setText('mFallecidoFecha', d.ffecha    || '—');
+      setText('mAfiliacion',     d.afiliacion|| '—');
+      setText('mClienteNombre',  d.cliente   || '—');
+      setText('mClienteDoc',     d.cdoc      || '—');
+      setText('mClienteEmail',   d.cemail    || '—');
+      setText('mContrato',       d.contrato  || '—');
+      setText('mRecibo',         d.recibo    || '—');
+      setText('mAviso',          d.aviso     || '—');
+      setText('mObs',            d.obs       || '');
+      setDisplay('mObsWrap', d.obs ? 'block' : 'none');
 
       var badge = document.getElementById('mStatusBadge');
-      badge.className   = 'badge-status ' + (statusColors[s] || '');
-      badge.textContent = statusLabels[s] || s;
+      if (badge) {
+        badge.className   = 'badge-status ' + (statusColors[s] || '');
+        badge.textContent = statusLabels[s] || s;
+      }
 
-      document.getElementById('mTipo').textContent            = d.tipo;
-      document.getElementById('mEmpresa').textContent         = d.empresa;
-
-      document.getElementById('mFallecidoNombre').textContent = d.fallecido;
-      document.getElementById('mFallecidoDoc').textContent    = d.fdoc;
-      document.getElementById('mFallecidoFecha').textContent  = d.ffecha;
-      document.getElementById('mAfiliacion').textContent      = d.afiliacion;
-
-      document.getElementById('mClienteNombre').textContent   = d.cliente;
-      document.getElementById('mClienteDoc').textContent      = d.cdoc;
-      document.getElementById('mClienteEmail').textContent    = d.cemail;
-
-      document.getElementById('mContrato').textContent        = d.contrato;
-      document.getElementById('mRecibo').textContent          = d.recibo;
-      document.getElementById('mAviso').textContent           = d.aviso;
-
-      document.getElementById('mObs').textContent             = d.obs;
-      document.getElementById('mObsWrap').style.display       = d.obs ? 'block' : 'none';
-
-      document.getElementById('mPreviewLink').href = '/certificates/' + id + '/preview';
+      setHref('mPreviewLink', '/certificates/' + id + '/preview');
 
       var editLink = document.getElementById('mEditLink');
       if (editLink) {
         var canEdit = (s === 'draft' || s === 'rejected');
-        editLink.href          = '/certificates/' + id + '/edit';
+        editLink.href         = '/certificates/' + id + '/edit';
         editLink.style.display = canEdit ? 'inline-flex' : 'none';
       }
     })
-    .catch(function(e) {
-      document.getElementById('mFallecido').textContent = 'Error al cargar';
+    .catch(function(err) {
+      setText('mFallecido', 'Error al cargar (' + (err.message || err) + ')');
     });
 }
+
+/* Asegurar que el modal abre al hacer clic en el botón Ver */
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('[data-bs-target="#certModal"]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-cert-id');
+      if (id) verCert(id);
+    });
+  });
+});
 </script>
 {% endblock %}
