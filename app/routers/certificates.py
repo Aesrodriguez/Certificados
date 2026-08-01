@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import date
 
@@ -419,7 +420,7 @@ async def download_certificate_pdf(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="certificado_{cert.id}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{_pdf_filename(cert)}"'},
     )
 
 
@@ -452,6 +453,15 @@ async def resend_certificate_email(
 
 
 _GENERIC_MSGS = {"Field required", "String should have at least 1 character"}
+
+_UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\r\n\t]')
+
+
+def _pdf_filename(cert) -> str:
+    name = (cert.fallecido_nombre_completo or "FALLECIDO").strip().upper()
+    name = _UNSAFE_CHARS.sub('', name)
+    name = ' '.join(name.split())
+    return f"{name}(QEPD).pdf"
 
 
 def _field_errors(exc: pydantic.ValidationError) -> dict[str, str]:

@@ -7,11 +7,21 @@ Gmail API communicates over HTTPS (port 443) which is always open.
 import asyncio
 import base64
 import logging
+import re
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 import httpx
+
+_UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\r\n\t]')
+
+
+def _pdf_filename(cert) -> str:
+    name = (cert.fallecido_nombre_completo or "FALLECIDO").strip().upper()
+    name = _UNSAFE_CHARS.sub('', name)
+    name = ' '.join(name.split())
+    return f"{name}(QEPD).pdf"
 
 from app.core.config import settings
 from app.models.certificate_request import CertificateRequest
@@ -101,7 +111,7 @@ async def send_certificate_email_async(cert: CertificateRequest, pdf_bytes: byte
     <p>Este es un mensaje generado automáticamente, por favor no responda a este correo.</p>
     <p>Clara Certificados</p>
     """
-    filename = f"certificado_{cert.id}.pdf"
+    filename = _pdf_filename(cert)
     subject = f"Certificado exequial - {cert.fallecido_nombre_completo}"
     await _send(cert.cliente_email, subject, html, (filename, pdf_bytes))
 
