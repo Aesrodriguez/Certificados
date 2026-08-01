@@ -48,10 +48,11 @@ async def list_certificates(
     db: AsyncSession = Depends(get_db),
     session: DbSession = Depends(get_current_session),
     status_filter: str | None = Query(None, alias="status"),
+    q: str | None = Query(None),
     page: int = Query(1, ge=1),
 ):
     certs, total = await certificate_service.list_for_user(
-        db, session.user, status_filter=status_filter, page=page, per_page=PER_PAGE
+        db, session.user, status_filter=status_filter, search=q or None, page=page, per_page=PER_PAGE
     )
     total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
     return templates.TemplateResponse(
@@ -60,6 +61,7 @@ async def list_certificates(
             session,
             certs=certs,
             status_filter=status_filter,
+            search=q or "",
             page=page,
             total=total,
             total_pages=total_pages,
@@ -133,6 +135,11 @@ async def certificate_quick_view(
             return val.strftime("%d/%m/%Y")
         return str(val)
 
+    user = session.user
+    _editable = cert.status in certificate_service.EDITABLE_STATUSES
+    can_edit = (user.role in (RoleEnum.ADMIN,) or cert.asesor_id == user.id) and _editable
+    can_delete = (user.role == RoleEnum.ADMIN) or (cert.asesor_id == user.id and _editable)
+
     return JSONResponse({
         "id":        str(cert.id),
         "fallecido": cert.fallecido_nombre_completo or "",
@@ -150,6 +157,8 @@ async def certificate_quick_view(
         "obs":       cert.observaciones or "",
         "status":    cert.status.value,
         "fecha":     _d(cert.created_at),
+        "can_edit":   can_edit,
+        "can_delete": can_delete,
     })
 
 
@@ -247,6 +256,33 @@ async def update_certificate(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
     return RedirectResponse(url=f"/certificates/{cert.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post(
+    "/{cert_id}/delete",
+    dependencies=[Depends(verify_csrf)],
+)
+async def delete_certificate(
+    cert_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    session: DbSession = Depends(get_current_session),
+):
+    cert = await certificate_service.get_or_none(db, cert_id)
+    if cert is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    try:
+        await certificate_service.delete_cert(
+            db, cert=cert, actor=session.user, ip_address=_ip(request)
+        )
+    except certificate_service.CertificateServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    return RedirectResponse(
+        url="/certificates?msg=Solicitud+eliminada+correctamente.",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.post(

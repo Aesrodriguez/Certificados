@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -32,21 +32,30 @@ async def list_for_user(
     db: AsyncSession,
     user: User,
     status_filter: str | None = None,
+    search: str | None = None,
     page: int = 1,
     per_page: int = 25,
 ) -> tuple[list[CertificateRequest], int]:
-    q = _base_query(user)
+    query = _base_query(user)
     if status_filter:
         try:
-            q = q.where(CertificateRequest.status == StatusEnum[status_filter.upper()])
+            query = query.where(CertificateRequest.status == StatusEnum[status_filter.upper()])
         except KeyError:
             pass
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(or_(
+            CertificateRequest.fallecido_nombre_completo.ilike(pattern),
+            CertificateRequest.cliente_nombre_completo.ilike(pattern),
+            CertificateRequest.fallecido_numero_documento.ilike(pattern),
+            CertificateRequest.cliente_numero_documento.ilike(pattern),
+        ))
 
-    count_result = await db.execute(select(func.count()).select_from(q.subquery()))
+    count_result = await db.execute(select(func.count()).select_from(query.subquery()))
     total = count_result.scalar_one()
 
-    q = q.offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(q)
+    query = query.offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(query)
     return list(result.scalars().all()), total
 
 
@@ -235,4 +244,34 @@ async def reject(
         ip_address=ip_address,
         metadata={"comment": comment.strip()},
     )
+    await db.commit()
+
+
+def assert_can_delete(cert: CertificateRequest, user: User) -> None:
+    if user.role == RoleEnum.ADMIN:
+        return
+    if cert.asesor_id != user.id:
+        raise CertificateServiceError("No tienes acceso a esta solicitud.")
+    if cert.status not in EDITABLE_STATUSES:
+        raise CertificateServiceError("Solo puedes eliminar solicitudes en borrador o rechazadas.")
+
+
+async def delete_cert(
+    db: AsyncSession,
+    *,
+    cert: CertificateRequest,
+    actor: User,
+    ip_address: str | None,
+) -> None:
+    assert_can_delete(cert, actor)
+    await log_action(
+        db,
+        actor_user_id=actor.id,
+        action=AuditActionEnum.CERT_DELETED,
+        entity_type="certificate_request",
+        entity_id=cert.id,
+        ip_address=ip_address,
+        metadata={"fallecido": cert.fallecido_nombre_completo},
+    )
+    await db.delete(cert)
     await db.commit()

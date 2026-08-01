@@ -13,6 +13,7 @@
     <p class="page-subtitle">
       {{ total }} solicitud{% if total != 1 %}es{% endif %}
       {% if status_filter %} · estado: {{ status_filter }}{% endif %}
+      {% if search %} · búsqueda: "{{ search }}"{% endif %}
       {% if total_pages > 1 %} · página {{ page }} de {{ total_pages }}{% endif %}
     </p>
   </div>
@@ -21,6 +22,29 @@
     <i class="bi bi-plus-circle me-2"></i>Nueva solicitud
   </a>
   {% endif %}
+</div>
+
+{# ── Barra de búsqueda ── #}
+<div class="mb-3">
+  <form method="get" action="/certificates" class="d-flex gap-2 align-items-center flex-wrap">
+    {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+    <div class="input-group" style="max-width:380px;">
+      <span class="input-group-text" style="background:#fff; border-right:none;">
+        <i class="bi bi-search" style="color:#64748b;"></i>
+      </span>
+      <input type="search" name="q" value="{{ search or '' }}"
+             class="form-control border-start-0"
+             placeholder="Buscar por nombre o documento…"
+             autocomplete="off">
+    </div>
+    <button type="submit" class="btn btn-outline-secondary btn-sm px-3">Buscar</button>
+    {% if search %}
+    <a href="/certificates{% if status_filter %}?status={{ status_filter }}{% endif %}"
+       class="btn btn-outline-danger btn-sm" title="Limpiar búsqueda">
+      <i class="bi bi-x-lg"></i>
+    </a>
+    {% endif %}
+  </form>
 </div>
 
 <div class="card">
@@ -34,11 +58,15 @@
           <th class="d-none d-md-table-cell">Empresa</th>
           <th>Estado</th>
           <th class="d-none d-sm-table-cell">Fecha</th>
-          <th style="width:90px"></th>
+          <th style="width:120px"></th>
         </tr>
       </thead>
       <tbody>
         {% for cert in certs %}
+        {% set is_admin = current_user.role.value == "admin" %}
+        {% set is_own   = cert.asesor_id == current_user.id %}
+        {% set editable = cert.status.value in ("draft", "rejected") %}
+        {% set can_modify = is_admin or (current_user.role.value in ("asesor", "admin") and is_own and editable) %}
         <tr>
           <td>
             <div class="d-flex align-items-center gap-2">
@@ -71,13 +99,38 @@
             {{ cert.created_at.strftime("%d/%m/%Y") }}
           </td>
           <td>
-            <button type="button"
-                    class="btn btn-primary btn-sm"
-                    data-cert-id="{{ cert.id }}"
-                    data-bs-toggle="modal"
-                    data-bs-target="#certModal">
-              <i class="bi bi-eye me-1"></i>Ver
-            </button>
+            <div class="d-flex gap-1 align-items-center">
+              {# Ver #}
+              <button type="button"
+                      class="btn btn-primary btn-sm"
+                      data-cert-id="{{ cert.id }}"
+                      data-bs-toggle="modal"
+                      data-bs-target="#certModal"
+                      title="Ver detalles">
+                <i class="bi bi-eye"></i>
+              </button>
+
+              {% if can_modify %}
+              {# Editar #}
+              <a href="/certificates/{{ cert.id }}/edit"
+                 class="btn btn-sm"
+                 style="background:#f59e0b; color:#fff;"
+                 title="Editar solicitud">
+                <i class="bi bi-pencil"></i>
+              </a>
+
+              {# Eliminar #}
+              <form method="post"
+                    action="/certificates/{{ cert.id }}/delete"
+                    data-confirm="¿Eliminar esta solicitud? Esta acción no se puede deshacer."
+                    class="m-0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar solicitud">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% else %}
@@ -85,11 +138,19 @@
           <td colspan="7">
             <div class="text-center py-5">
               <i class="bi bi-inbox" style="font-size:36px; color:#cbd5e1;"></i>
+              {% if search %}
+              <p class="mt-2 mb-1 fw-semibold text-muted">Sin resultados para "{{ search }}"</p>
+              <a href="/certificates{% if status_filter %}?status={{ status_filter }}{% endif %}"
+                 class="btn btn-outline-secondary btn-sm mt-2">
+                <i class="bi bi-x-lg me-1"></i>Limpiar búsqueda
+              </a>
+              {% else %}
               <p class="mt-2 mb-1 fw-semibold text-muted">No hay solicitudes</p>
               {% if current_user.role.value in ("asesor", "admin") %}
               <a href="/certificates/new" class="btn btn-primary btn-sm mt-2">
                 <i class="bi bi-plus-circle me-1"></i>Crear primera solicitud
               </a>
+              {% endif %}
               {% endif %}
             </div>
           </td>
@@ -108,13 +169,13 @@
     </div>
     <div class="d-flex gap-2">
       {% if page > 1 %}
-      <a href="?page={{ page-1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+      <a href="?page={{ page-1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
          class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-chevron-left"></i> Anterior
       </a>
       {% endif %}
       {% if page < total_pages %}
-      <a href="?page={{ page+1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+      <a href="?page={{ page+1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
          class="btn btn-outline-secondary btn-sm">
         Siguiente <i class="bi bi-chevron-right"></i>
       </a>
@@ -237,12 +298,23 @@
       {# Footer #}
       <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:14px 24px; gap:10px;">
         <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-        {% if current_user.role.value in ("asesor", "admin") %}
+
+        {# Eliminar — visible solo cuando can_delete (gestionado por JS) #}
+        <form id="mDeleteForm" method="post" action="#"
+              data-confirm="¿Eliminar esta solicitud? Esta acción no se puede deshacer."
+              class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" id="mDeleteBtn" class="btn btn-danger btn-sm" style="display:none;">
+            <i class="bi bi-trash me-1"></i>Eliminar
+          </button>
+        </form>
+
+        {# Editar — visible solo cuando can_edit (gestionado por JS) #}
         <a id="mEditLink" href="#" class="btn btn-sm"
            style="background:#f59e0b; color:#fff; font-weight:600; display:none;">
           <i class="bi bi-pencil me-1"></i>Editar
         </a>
-        {% endif %}
+
         <a id="mPreviewLink" href="#"
            class="btn btn-primary btn-sm ms-auto">
           <i class="bi bi-file-earmark-text me-1"></i>Ver certificado completo

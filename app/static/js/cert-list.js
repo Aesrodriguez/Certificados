@@ -33,8 +33,8 @@ function resetModal() {
   setDisplay('mObsWrap',     'none');
   var badge = document.getElementById('mStatusBadge');
   if (badge) { badge.className = ''; badge.textContent = ''; }
-  var editLink = document.getElementById('mEditLink');
-  if (editLink) editLink.style.display = 'none';
+  setDisplay('mEditBtn',   'none');
+  setDisplay('mDeleteBtn', 'none');
 }
 
 function verCert(id) {
@@ -72,11 +72,19 @@ function verCert(id) {
 
       setHref('mPreviewLink', '/certificates/' + id + '/preview');
 
+      // Editar
       var editLink = document.getElementById('mEditLink');
       if (editLink) {
-        var canEdit = (s === 'draft' || s === 'rejected');
         editLink.href          = '/certificates/' + id + '/edit';
-        editLink.style.display = canEdit ? 'inline-flex' : 'none';
+        editLink.style.display = d.can_edit ? 'inline-flex' : 'none';
+      }
+
+      // Eliminar
+      var deleteForm = document.getElementById('mDeleteForm');
+      var deleteBtn  = document.getElementById('mDeleteBtn');
+      if (deleteForm && deleteBtn) {
+        deleteForm.action      = '/certificates/' + id + '/delete';
+        deleteBtn.style.display = d.can_delete ? 'inline-block' : 'none';
       }
     })
     .catch(function (err) {

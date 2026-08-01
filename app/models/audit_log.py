@@ -32,6 +32,7 @@ class AuditActionEnum(str, enum.Enum):
     CERT_PDF_GENERATED = "cert_pdf_generated"
     CERT_EMAIL_SENT = "cert_email_sent"
     CERT_EMAIL_FAILED = "cert_email_failed"
+    CERT_DELETED = "cert_deleted"
     PASSWORD_RESET_REQUESTED = "password_reset_requested"
     PASSWORD_RESET_COMPLETED = "password_reset_completed"
 
