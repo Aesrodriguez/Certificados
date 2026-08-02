@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = ""
     ADMIN_FULL_NAME: str = ""
 
+    # Nombre y cargo que aparecen en la firma del certificado
+    FIRMA_NOMBRE: str = ""
+    FIRMA_CARGO: str = "Administrador de Ciudad"
+
     @property
     def is_production(self) -> bool:
         return self.ENV == "production"

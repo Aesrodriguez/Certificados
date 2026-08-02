@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.models.audit_log import AuditActionEnum
 from app.models.certificate_request import CertificateRequest, StatusEnum
 from app.models.user import RoleEnum, User
@@ -182,7 +183,9 @@ async def approve(
 async def send_certificate_email(
     db: AsyncSession, *, cert: CertificateRequest, actor: User, ip_address: str | None
 ) -> bool:
-    pdf_bytes = pdf_service.build_certificate_pdf(cert)
+    signer_nombre = settings.FIRMA_NOMBRE.strip() or "Administrador de Ciudad"
+    signer_cargo = settings.FIRMA_CARGO.strip() or "Administrador de Ciudad"
+    pdf_bytes = pdf_service.build_certificate_pdf(cert, signer_name=signer_nombre, signer_cargo=signer_cargo)
     await log_action(
         db,
         actor_user_id=actor.id,

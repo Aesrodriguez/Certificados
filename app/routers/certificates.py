@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, sta
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.security import generate_csrf_token
 from app.core.templating import templates
 from app.db.session import get_db
@@ -29,6 +30,20 @@ router = APIRouter(
 
 def _ip(request: Request) -> str | None:
     return request.client.host if request.client else None
+
+
+def _signer(cert) -> tuple[str, str]:
+    """Return (nombre, cargo) for the certificate signature block.
+
+    Priority: FIRMA_NOMBRE setting → asesor full_name → fallback label.
+    """
+    nombre = (
+        settings.FIRMA_NOMBRE.strip()
+        or (cert.asesor.full_name if cert.asesor else "")
+        or "Administrador de Ciudad"
+    )
+    cargo = settings.FIRMA_CARGO.strip() or "Administrador de Ciudad"
+    return nombre, cargo
 
 
 def _ctx(session: DbSession, **extra) -> dict:
@@ -407,14 +422,15 @@ async def preview_certificate(
     else:
         issue_fallecimiento = "-"
 
-    asesor_name = cert.asesor.full_name if cert.asesor else "Administrador de Ciudad"
+    signer_nombre, signer_cargo = _signer(cert)
 
     return templates.TemplateResponse(
         request,
         "certificates/preview.html",
         {
             "cert": cert,
-            "asesor_name": asesor_name,
+            "asesor_name": signer_nombre,
+            "firma_cargo": signer_cargo,
             "current_user": session.user,
             "csrf_token": generate_csrf_token(session.csrf_secret),
             "can_edit": can_edit,
@@ -437,7 +453,7 @@ async def download_certificate_pdf(
     db: AsyncSession = Depends(get_db),
     session: DbSession = Depends(get_current_session),
 ):
-    cert = await certificate_service.get_or_none(db, cert_id)
+    cert = await certificate_service.get_with_asesor(db, cert_id)
     if cert is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     try:
@@ -450,7 +466,8 @@ async def download_certificate_pdf(
             detail="El PDF solo está disponible para solicitudes aprobadas.",
         )
 
-    pdf_bytes = pdf_service.build_certificate_pdf(cert)
+    signer_nombre, signer_cargo = _signer(cert)
+    pdf_bytes = pdf_service.build_certificate_pdf(cert, signer_name=signer_nombre, signer_cargo=signer_cargo)
     await log_action(
         db,
         actor_user_id=session.user.id,

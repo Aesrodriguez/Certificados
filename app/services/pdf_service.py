@@ -241,7 +241,7 @@ def _draw_letterhead(canvas, doc):
     canvas.restoreState()
 
 
-def build_certificate_pdf(cert: CertificateRequest) -> bytes:
+def build_certificate_pdf(cert: CertificateRequest, signer_name: str = "", signer_cargo: str = "Administrador de Ciudad") -> bytes:
     buffer = io.BytesIO()
 
     frame = Frame(
@@ -395,9 +395,8 @@ def build_certificate_pdf(cert: CertificateRequest) -> bytes:
     else:
         story.append(Spacer(1, 2 * cm))
 
-    asesor_name = cert.asesor.full_name if cert.asesor else "Administrador de Ciudad"
-    story.append(Paragraph(asesor_name, _sig_name))
-    story.append(Paragraph("Administrador de Ciudad", _sig_role))
+    story.append(Paragraph(signer_name or "Administrador de Ciudad", _sig_name))
+    story.append(Paragraph(signer_cargo or "Administrador de Ciudad", _sig_role))
     story.append(Paragraph(issue.strftime("%d/%m/%Y"), _sig_role))
 
     doc.build(story)
