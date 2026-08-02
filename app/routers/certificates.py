@@ -274,6 +274,8 @@ async def delete_certificate(
     db: AsyncSession = Depends(get_db),
     session: DbSession = Depends(get_current_session),
 ):
+    from urllib.parse import quote
+
     cert = await certificate_service.get_or_none(db, cert_id)
     if cert is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
@@ -283,7 +285,17 @@ async def delete_certificate(
             db, cert=cert, actor=session.user, ip_address=_ip(request)
         )
     except certificate_service.CertificateServiceError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        return RedirectResponse(
+            url=f"/certificates?msg={quote(str(exc))}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).exception("Error eliminando solicitud %s", cert_id)
+        return RedirectResponse(
+            url=f"/certificates?msg={quote('Error al eliminar la solicitud. Intente de nuevo.')}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     return RedirectResponse(
         url="/certificates?msg=Solicitud+eliminada+correctamente.",

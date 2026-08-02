@@ -263,15 +263,20 @@ async def delete_cert(
     actor: User,
     ip_address: str | None,
 ) -> None:
+    import logging as _logging
     assert_can_delete(cert, actor)
-    await log_action(
-        db,
-        actor_user_id=actor.id,
-        action=AuditActionEnum.CERT_DELETED,
-        entity_type="certificate_request",
-        entity_id=cert.id,
-        ip_address=ip_address,
-        metadata={"fallecido": cert.fallecido_nombre_completo},
-    )
+    try:
+        await log_action(
+            db,
+            actor_user_id=actor.id,
+            action=AuditActionEnum.CERT_DELETED,
+            entity_type="certificate_request",
+            entity_id=cert.id,
+            ip_address=ip_address,
+            metadata={"fallecido": cert.fallecido_nombre_completo},
+        )
+    except Exception:
+        _logging.getLogger(__name__).exception("Audit log failed for cert_deleted %s", cert.id)
+        await db.rollback()
     await db.delete(cert)
     await db.commit()
