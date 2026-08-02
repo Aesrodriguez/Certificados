@@ -137,8 +137,14 @@ async def certificate_quick_view(
 
     user = session.user
     _editable = cert.status in certificate_service.EDITABLE_STATUSES
-    can_edit = (user.role in (RoleEnum.ADMIN,) or cert.asesor_id == user.id) and _editable
-    can_delete = (user.role == RoleEnum.ADMIN) or (cert.asesor_id == user.id and _editable)
+    can_edit = (
+        user.role == RoleEnum.ADMIN
+        or (user.role == RoleEnum.ASESOR and cert.asesor_id == user.id)
+    ) and _editable
+    can_delete = (
+        user.role == RoleEnum.ADMIN
+        or (user.role == RoleEnum.ASESOR and cert.asesor_id == user.id and _editable)
+    )
 
     return JSONResponse({
         "id":        str(cert.id),

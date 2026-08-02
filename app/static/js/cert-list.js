@@ -33,7 +33,7 @@ function resetModal() {
   setDisplay('mObsWrap',     'none');
   var badge = document.getElementById('mStatusBadge');
   if (badge) { badge.className = ''; badge.textContent = ''; }
-  setDisplay('mEditBtn',   'none');
+  setDisplay('mEditLink',  'none');
   setDisplay('mDeleteBtn', 'none');
 }
 

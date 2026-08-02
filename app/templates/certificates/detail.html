@@ -94,9 +94,10 @@
 <hr class="my-4">
 <h2 class="h6 text-muted">Revisión</h2>
 <div class="d-flex gap-2 flex-wrap">
-    <form method="post" action="/certificates/{{ cert.id }}/approve">
+    <form method="post" action="/certificates/{{ cert.id }}/approve"
+          data-confirm="¿Aprobar esta solicitud? Se enviará el certificado por correo al solicitante.">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="btn btn-success" data-confirm="¿Aprobar esta solicitud?">Aprobar</button>
+        <button type="submit" class="btn btn-success">Aprobar</button>
     </form>
     <form method="post" action="/certificates/{{ cert.id }}/reject" class="d-flex gap-2">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

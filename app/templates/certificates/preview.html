@@ -198,7 +198,7 @@
 <div class="action-bar">
     <a href="/certificates" class="btn-back">← Lista</a>
     <span class="sep">|</span>
-    <button class="btn-print" onclick="window.print()">Imprimir / PDF</button>
+    <button id="btnPrint" class="btn-print">Imprimir / PDF</button>
 
     {% if can_edit %}
     <span class="sep">|</span>
@@ -346,5 +346,6 @@
 </div>
 </div>
 
+<script src="/static/js/preview.js"></script>
 </body>
 </html>
