@@ -183,16 +183,6 @@ async def certificate_detail(
     except certificate_service.CertificateServiceError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
-    await log_action(
-        db,
-        actor_user_id=session.user.id,
-        action=AuditActionEnum.CERT_VIEWED,
-        entity_type="certificate_request",
-        entity_id=cert.id,
-        ip_address=_ip(request),
-    )
-    await db.commit()
-
     is_admin = session.user.role == RoleEnum.ADMIN
     can_edit = (is_admin or cert.asesor_id == session.user.id) and cert.status in certificate_service.EDITABLE_STATUSES
     can_review = session.user.role in (RoleEnum.REVISOR, RoleEnum.ADMIN) and cert.status.value == "pending"

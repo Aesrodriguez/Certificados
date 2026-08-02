@@ -265,18 +265,31 @@ async def delete_cert(
 ) -> None:
     import logging as _logging
     assert_can_delete(cert, actor)
+
+    # Snapshot before deletion — cert object expires after commit
+    _cert_id = cert.id
+    _fallecido = cert.fallecido_nombre_completo
+    _actor_id = actor.id
+
+    # Transaction 1: delete the cert (must succeed)
+    await db.delete(cert)
+    await db.commit()
+
+    # Transaction 2: audit log (non-blocking — migration may not be applied yet)
     try:
         await log_action(
             db,
-            actor_user_id=actor.id,
+            actor_user_id=_actor_id,
             action=AuditActionEnum.CERT_DELETED,
             entity_type="certificate_request",
-            entity_id=cert.id,
+            entity_id=_cert_id,
             ip_address=ip_address,
-            metadata={"fallecido": cert.fallecido_nombre_completo},
+            metadata={"fallecido": _fallecido},
         )
+        await db.commit()
     except Exception:
-        _logging.getLogger(__name__).exception("Audit log failed for cert_deleted %s", cert.id)
-        await db.rollback()
-    await db.delete(cert)
-    await db.commit()
+        _logging.getLogger(__name__).exception("Audit log cert_deleted failed for %s", _cert_id)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
