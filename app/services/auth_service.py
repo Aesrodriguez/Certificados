@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.core.config import settings
 from app.core.security import (
@@ -94,23 +94,31 @@ async def create_session(
     return raw_token
 
 
+_LAST_SEEN_THROTTLE_SECONDS = 300  # update at most once every 5 minutes
+
+
 async def get_valid_session(db: AsyncSession, raw_token: str) -> Session | None:
     token_hash = hash_session_token(raw_token)
     result = await db.execute(
         select(Session)
         .where(Session.session_token_hash == token_hash)
-        .options(selectinload(Session.user))
+        .options(joinedload(Session.user))  # single JOIN instead of two SELECTs
     )
     session = result.scalar_one_or_none()
     if session is None:
         return None
-    if session.expires_at < datetime.now(timezone.utc):
+
+    now = datetime.now(timezone.utc)
+    if session.expires_at < now:
         return None
     if session.user is None or not session.user.is_active:
         return None
 
-    session.last_seen_at = datetime.now(timezone.utc)
-    await db.commit()
+    # Only write last_seen_at every 5 min — avoids a DB commit on every request
+    if (now - session.last_seen_at).total_seconds() > _LAST_SEEN_THROTTLE_SECONDS:
+        session.last_seen_at = now
+        await db.commit()
+
     return session
 
 

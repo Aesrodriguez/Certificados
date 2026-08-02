@@ -16,6 +16,12 @@ CSP = (
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         response = await call_next(request)
+
+        # Cache static assets for 24 h — browser won't re-request on every navigation
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "public, max-age=86400"
+            return response
+
         response.headers["Content-Security-Policy"] = CSP
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
