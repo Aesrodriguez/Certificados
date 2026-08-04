@@ -245,9 +245,10 @@
 
     <div class="cert-content">
 
-        {% set codigo_cert = cert.numero_aviso or cert.numero_certificado %}
-        {% if codigo_cert %}
-        <div class="cert-number">{{ codigo_cert }}</div>
+        {% if cert.numero_aviso %}
+        <div class="cert-number">BQ-GER-5-1-{{ cert.numero_aviso }}-{{ issue_year }}</div>
+        {% elif cert.numero_certificado %}
+        <div class="cert-number">{{ cert.numero_certificado }}</div>
         {% endif %}
 
         <div class="cert-certificamos">CERTIFICAMOS</div>

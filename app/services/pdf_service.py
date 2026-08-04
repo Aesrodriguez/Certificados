@@ -273,10 +273,15 @@ def build_certificate_pdf(cert: CertificateRequest, signer_name: str = "", signe
 
     story: list = []
 
-    # ── Certificate reference number (aviso o consecutivo) ───────────────────
-    codigo = cert.numero_aviso or cert.numero_certificado
+    # ── Certificate reference number ──────────────────────────────────────────
+    if cert.numero_aviso:
+        codigo = f"BQ-GER-5-1-{cert.numero_aviso}-{issue.year}"
+    elif cert.numero_certificado:
+        codigo = cert.numero_certificado
+    else:
+        codigo = None
     if codigo:
-        story.append(Paragraph(str(codigo), _cert_num))
+        story.append(Paragraph(codigo, _cert_num))
 
     # ── CERTIFICAMOS heading ──────────────────────────────────────────────────
     story.append(Paragraph("CERTIFICAMOS", _heading))
