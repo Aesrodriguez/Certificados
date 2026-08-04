@@ -183,9 +183,23 @@ async def approve(
 async def send_certificate_email(
     db: AsyncSession, *, cert: CertificateRequest, actor: User, ip_address: str | None
 ) -> bool:
+    from app.services import servicio_service
+
     signer_nombre = settings.FIRMA_NOMBRE.strip() or "Administrador de Ciudad"
     signer_cargo = settings.FIRMA_CARGO.strip() or "Administrador de Ciudad"
-    pdf_bytes = pdf_service.build_certificate_pdf(cert, signer_name=signer_nombre, signer_cargo=signer_cargo)
+
+    lineas_servicio = None
+    if cert.valor_total:
+        lineas_servicio = await servicio_service.get_lineas_for_cert(
+            db, cert.empresa, cert.nombre_servicio, cert.valor_total
+        )
+
+    pdf_bytes = pdf_service.build_certificate_pdf(
+        cert,
+        signer_name=signer_nombre,
+        signer_cargo=signer_cargo,
+        lineas_servicio=lineas_servicio,
+    )
     await log_action(
         db,
         actor_user_id=actor.id,

@@ -241,8 +241,15 @@ def _draw_letterhead(canvas, doc):
     canvas.restoreState()
 
 
-def build_certificate_pdf(cert: CertificateRequest, signer_name: str = "", signer_cargo: str = "Administrador de Ciudad") -> bytes:
+def build_certificate_pdf(
+    cert: CertificateRequest,
+    signer_name: str = "",
+    signer_cargo: str = "Administrador de Ciudad",
+    lineas_servicio: list | None = None,
+) -> bytes:
     buffer = io.BytesIO()
+
+    issue = cert.reviewed_at.date() if cert.reviewed_at else date.today()
 
     frame = Frame(
         _LEFT_MARGIN,
@@ -329,7 +336,11 @@ def build_certificate_pdf(cert: CertificateRequest, signer_name: str = "", signe
 
         if cert.valor_total:
             # Desglose completo por porcentajes
-            lineas = get_lineas_servicio(cert.empresa, cert.nombre_servicio, cert.valor_total)
+            lineas = (
+                lineas_servicio
+                if lineas_servicio is not None
+                else get_lineas_servicio(cert.empresa, cert.nombre_servicio, cert.valor_total)
+            )
             for nombre, valor in lineas:
                 dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(nombre)))
                 row = Table(
@@ -380,7 +391,6 @@ def build_certificate_pdf(cert: CertificateRequest, signer_name: str = "", signe
     ))
 
     # ── Issue paragraph ───────────────────────────────────────────────────────
-    issue = cert.reviewed_at.date() if cert.reviewed_at else date.today()
     footer_text = (
         f"Se expide la presente certificación a solicitud del interesado a los "
         f"{issue.day} días del mes de {_MESES[issue.month]} de {issue.year}."

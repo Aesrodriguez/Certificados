@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}{% if svc %}Editar servicio{% else %}Nuevo servicio{% endif %} — Clara Certificados{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{% if svc %}Editar servicio{% else %}Nuevo servicio{% endif %}</h1>
+    <p class="page-subtitle">{% if svc %}{{ svc.nombre }}{% else %}Configura una plantilla de desglose de servicios{% endif %}</p>
+  </div>
+  <a href="/admin/servicios" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-2"></i>Volver
+  </a>
+</div>
+
+{% if error %}
+<div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:8px;">
+  <i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span>
+</div>
+{% endif %}
+
+<form method="post"
+      action="{% if svc %}/admin/servicios/{{ svc.id }}{% else %}/admin/servicios{% endif %}"
+      id="svcForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <div class="row g-3">
+    <!-- Left column: service info -->
+    <div class="col-lg-5">
+      <div class="card">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-3" style="font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:var(--c-muted);">Identificación</h6>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Nombre de la plantilla <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" class="form-control" required maxlength="200"
+                   value="{{ svc.nombre if svc else '' }}"
+                   placeholder="Ej: RECORDAR — Servicio Funerario Estándar">
+            <div class="form-text">Nombre descriptivo para identificar esta plantilla.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Clave empresa</label>
+            <input type="text" name="empresa_key" class="form-control" maxlength="100"
+                   value="{{ svc.empresa_key if svc else '' }}"
+                   placeholder="Ej: recordar">
+            <div class="form-text">
+              Fragmento (en minúsculas) que debe aparecer en el campo <em>empresa</em> de la solicitud.
+              Dejar vacío para coincidir con cualquier empresa.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Clave servicio</label>
+            <input type="text" name="servicio_key" class="form-control" maxlength="200"
+                   value="{{ svc.servicio_key if svc else '' }}"
+                   placeholder="Ej: transporte velacion misa">
+            <div class="form-text">
+              Fragmento (en minúsculas) que debe aparecer en el nombre del servicio.
+              Dejar vacío para ser comodín de esa empresa.
+            </div>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:13px;">Orden de prioridad</label>
+              <input type="number" name="orden" class="form-control" min="0" max="9999"
+                     value="{{ svc.orden if svc else 0 }}">
+              <div class="form-text">Menor número = mayor prioridad al hacer matching.</div>
+            </div>
+            <div class="col-6 d-flex align-items-end pb-1">
+              <div class="form-check">
+                <input type="hidden" name="is_active" value="0">
+                <input class="form-check-input" type="checkbox" id="chkActive" name="is_active" value="1"
+                       {% if svc is none or svc.is_active %}checked{% endif %}>
+                <label class="form-check-label fw-semibold" for="chkActive" style="font-size:13px;">Activo</label>
+                <div class="form-text">Solo los servicios activos se usan al generar documentos.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column: line items -->
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h6 class="fw-semibold mb-0" style="font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:var(--c-muted);">
+              Líneas del desglose
+            </h6>
+            <div class="d-flex align-items-center gap-3">
+              <span style="font-size:12px; color:var(--c-muted);">Total:
+                <strong id="pctTotal" style="color:#16a34a;">0%</strong>
+              </span>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddLine">
+                <i class="bi bi-plus-lg me-1"></i>Agregar línea
+              </button>
+            </div>
+          </div>
+
+          <div id="linesContainer">
+            {% if svc and svc.lineas %}
+              {% for linea in svc.lineas %}
+              <div class="svc-line d-flex gap-2 mb-2 align-items-start">
+                <div class="flex-grow-1">
+                  <input type="text" name="linea_nombre" class="form-control form-control-sm"
+                         placeholder="Nombre de la línea"
+                         value="{{ linea.nombre }}" required>
+                </div>
+                <div style="width:90px; flex-shrink:0;">
+                  <div class="input-group input-group-sm">
+                    <input type="number" name="linea_pct" class="form-control form-control-sm pct-input"
+                           placeholder="0" min="0" max="100" step="0.01"
+                           value="{{ '%.4g' | format(linea.porcentaje * 100) }}" required>
+                    <span class="input-group-text">%</span>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-line" title="Eliminar línea">&times;</button>
+              </div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <div id="emptyMsg" class="text-center py-3" style="color:var(--c-muted); font-size:13px; {% if svc and svc.lineas %}display:none{% endif %}">
+            Sin líneas. Usa el botón "Agregar línea" para añadir ítems al desglose.
+          </div>
+
+          <div class="mt-3 pt-2" style="border-top:1px solid var(--c-border, #e5e7eb); font-size:12px; color:var(--c-muted);">
+            Los porcentajes deben sumar <strong>100%</strong>.
+            Se usan para calcular el valor de cada ítem a partir del total de la solicitud.
+          </div>
+        </div>
+      </div>
+
+      <!-- Live preview -->
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h6 class="fw-semibold mb-0" style="font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:var(--c-muted);">
+              Vista previa
+            </h6>
+            <div class="d-flex align-items-center gap-2" style="font-size:13px;">
+              <label class="mb-0 text-nowrap">Valor total:</label>
+              <div class="input-group input-group-sm" style="width:160px;">
+                <span class="input-group-text">$</span>
+                <input type="number" id="previewAmount" class="form-control form-control-sm"
+                       value="10000000" min="0" step="1000">
+              </div>
+            </div>
+          </div>
+          <div id="previewTable" class="table-responsive">
+            <table class="table table-sm mb-0" style="font-size:12px;">
+              <tbody id="previewBody">
+                <tr><td class="text-center py-3" style="color:var(--c-muted);" colspan="2">Agrega líneas para ver la vista previa.</td></tr>
+              </tbody>
+              <tfoot id="previewFoot" style="display:none;">
+                <tr style="font-weight:600; border-top:1.5px solid #000;">
+                  <td>TOTAL</td>
+                  <td class="text-end" id="previewTotal"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mt-4">
+    <button type="submit" class="btn btn-primary px-4">
+      <i class="bi bi-check-lg me-2"></i>{% if svc %}Guardar cambios{% else %}Crear servicio{% endif %}
+    </button>
+    <a href="/admin/servicios" class="btn btn-outline-secondary px-4">Cancelar</a>
+  </div>
+</form>
+
+<script>
+(function () {
+  var container = document.getElementById('linesContainer');
+  var emptyMsg  = document.getElementById('emptyMsg');
+  var pctTotal  = document.getElementById('pctTotal');
+  var previewBody = document.getElementById('previewBody');
+  var previewFoot = document.getElementById('previewFoot');
+  var previewTotalEl = document.getElementById('previewTotal');
+  var previewAmount = document.getElementById('previewAmount');
+
+  function fmt(n) {
+    return '$ ' + Math.round(n).toLocaleString('es-CO');
+  }
+
+  function updateTotal() {
+    var inputs = container.querySelectorAll('.pct-input');
+    var total = 0;
+    inputs.forEach(function (inp) { total += parseFloat(inp.value) || 0; });
+    var rounded = Math.round(total * 100) / 100;
+    pctTotal.textContent = rounded + '%';
+    pctTotal.style.color = Math.abs(rounded - 100) < 0.01 ? '#16a34a' : '#dc2626';
+    updatePreview();
+  }
+
+  function updatePreview() {
+    var amount = parseFloat(previewAmount.value) || 0;
+    var rows = container.querySelectorAll('.svc-line');
+    if (rows.length === 0) {
+      previewBody.innerHTML = '<tr><td class="text-center py-3" style="color:var(--c-muted);" colspan="2">Agrega líneas para ver la vista previa.</td></tr>';
+      previewFoot.style.display = 'none';
+      return;
+    }
+
+    var html = '';
+    var runTotal = 0;
+    rows.forEach(function (row, idx) {
+      var nombre = row.querySelector('[name="linea_nombre"]').value || '—';
+      var pct = parseFloat(row.querySelector('.pct-input').value) || 0;
+      var valor = Math.round(amount * pct / 100);
+      runTotal += valor;
+      html += '<tr><td>' + nombre.toUpperCase() + '</td><td class="text-end">' + fmt(valor) + '</td></tr>';
+    });
+
+    // Rounding correction on last item
+    var diff = Math.round(amount) - runTotal;
+    if (diff !== 0 && rows.length > 0) {
+      runTotal += diff;
+    }
+
+    previewBody.innerHTML = html;
+    previewTotalEl.textContent = fmt(runTotal);
+    previewFoot.style.display = '';
+  }
+
+  function addLine(nombre, pct) {
+    emptyMsg.style.display = 'none';
+    var div = document.createElement('div');
+    div.className = 'svc-line d-flex gap-2 mb-2 align-items-start';
+    div.innerHTML =
+      '<div class="flex-grow-1">' +
+        '<input type="text" name="linea_nombre" class="form-control form-control-sm" placeholder="Nombre de la línea" value="' + (nombre || '') + '" required>' +
+      '</div>' +
+      '<div style="width:90px; flex-shrink:0;">' +
+        '<div class="input-group input-group-sm">' +
+          '<input type="number" name="linea_pct" class="form-control form-control-sm pct-input" placeholder="0" min="0" max="100" step="0.01" value="' + (pct != null ? pct : '') + '" required>' +
+          '<span class="input-group-text">%</span>' +
+        '</div>' +
+      '</div>' +
+      '<button type="button" class="btn btn-sm btn-outline-danger btn-remove-line" title="Eliminar línea">&times;</button>';
+    container.appendChild(div);
+    div.querySelector('[name="linea_nombre"]').focus();
+    div.querySelector('.pct-input').addEventListener('input', updateTotal);
+    div.querySelector('.btn-remove-line').addEventListener('click', function () {
+      div.remove();
+      if (container.querySelectorAll('.svc-line').length === 0) {
+        emptyMsg.style.display = '';
+      }
+      updateTotal();
+    });
+    updateTotal();
+  }
+
+  // Wire up existing lines
+  container.querySelectorAll('.pct-input').forEach(function (inp) {
+    inp.addEventListener('input', updateTotal);
+  });
+  container.querySelectorAll('.btn-remove-line').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.closest('.svc-line').remove();
+      if (container.querySelectorAll('.svc-line').length === 0) emptyMsg.style.display = '';
+      updateTotal();
+    });
+  });
+
+  document.getElementById('btnAddLine').addEventListener('click', function () { addLine('', ''); });
+  previewAmount.addEventListener('input', updatePreview);
+
+  updateTotal();
+})();
+</script>
+{% endblock %}

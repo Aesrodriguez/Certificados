@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Servicios — Clara Certificados{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Plantillas de Servicios</h1>
+    <p class="page-subtitle">
+      {{ servicios|length }} servicio{% if servicios|length != 1 %}s{% endif %} configurado{% if servicios|length != 1 %}s{% endif %}
+      — el orden determina qué plantilla se usa cuando una solicitud coincide con varios servicios.
+    </p>
+  </div>
+  <a href="/admin/servicios/new" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-2"></i>Nuevo servicio
+  </a>
+</div>
+
+{% if msg %}
+<div class="alert alert-success d-flex align-items-center gap-2 mb-3" style="border-radius:8px;">
+  <i class="bi bi-check-circle-fill"></i><span>{{ msg }}</span>
+</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:8px;">
+  <i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th style="width:64px;">Orden</th>
+          <th>Nombre</th>
+          <th class="d-none d-md-table-cell">Clave empresa</th>
+          <th class="d-none d-lg-table-cell">Clave servicio</th>
+          <th style="width:72px; text-align:center;">Líneas</th>
+          <th style="width:88px; text-align:center;">Estado</th>
+          <th style="width:176px; text-align:right;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for svc in servicios %}
+        <tr>
+          <td>
+            <span class="badge-status" style="background:#f3f4f6; color:#374151; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:600;">
+              {{ svc.orden }}
+            </span>
+          </td>
+          <td>
+            <a href="/admin/servicios/{{ svc.id }}" class="fw-semibold text-decoration-none" style="font-size:13.5px; color:var(--c-text);">
+              {{ svc.nombre }}
+            </a>
+          </td>
+          <td class="d-none d-md-table-cell">
+            <code style="font-size:12px;">{{ svc.empresa_key or '<em style="color:var(--c-muted)">cualquier empresa</em>' }}</code>
+          </td>
+          <td class="d-none d-lg-table-cell">
+            <code style="font-size:12px;">{{ svc.servicio_key or '<em style="color:var(--c-muted)">cualquier servicio</em>' }}</code>
+          </td>
+          <td class="text-center" style="font-size:13px; color:var(--c-muted);">{{ svc.lineas|length }}</td>
+          <td class="text-center">
+            {% if svc.is_active %}
+            <span class="badge-status" style="background:#dcfce7; color:#15803d; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">Activo</span>
+            {% else %}
+            <span class="badge-status" style="background:#f3f4f6; color:#6b7280; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">Inactivo</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="/admin/servicios/{{ svc.id }}" class="btn btn-sm btn-outline-secondary me-1">Ver</a>
+            <a href="/admin/servicios/{{ svc.id }}/edit" class="btn btn-sm btn-outline-primary me-1">Editar</a>
+            <form method="post" action="/admin/servicios/{{ svc.id }}/delete"
+                  style="display:inline"
+                  data-confirm="¿Eliminar el servicio «{{ svc.nombre }}»? Esta acción no se puede deshacer.">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center py-5" style="color:var(--c-muted);">
+            No hay servicios configurados.
+            <a href="/admin/servicios/new" class="ms-2">Crear el primero</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt-3" style="background:var(--c-surface-alt, #f8f9fa); border:none;">
+  <div class="card-body" style="font-size:13px; color:var(--c-muted); line-height:1.7;">
+    <strong>Cómo funciona el matching:</strong>
+    Para cada solicitud, se recorren los servicios en orden ascendente.
+    La primera plantilla donde la <em>clave empresa</em> aparece dentro del nombre de la empresa de la solicitud
+    <strong>y</strong> la <em>clave servicio</em> aparece dentro del nombre del servicio se usa para el desglose.
+    Claves vacías hacen de comodín (coinciden con cualquier valor).
+  </div>
+</div>
+
+<script src="/static/js/confirm-actions.js"></script>
+{% endblock %}

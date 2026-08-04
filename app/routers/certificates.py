@@ -18,9 +18,9 @@ from app.models.certificate_request import StatusEnum
 from app.models.session import Session as DbSession
 from app.models.user import RoleEnum
 from app.schemas.certificate_request import CertificateRequestIn
-from app.services import certificate_service, pdf_service
+from app.services import certificate_service, pdf_service, servicio_service
 from app.services.audit_service import log_action
-from app.services.pdf_service import _numero_a_palabras, _MESES, get_lineas_servicio
+from app.services.pdf_service import _numero_a_palabras, _MESES
 
 router = APIRouter(
     prefix="/certificates",
@@ -411,7 +411,7 @@ async def preview_certificate(
     issue_date_obj = cert.reviewed_at.date() if cert.reviewed_at else date.today()
     total_palabras = _numero_a_palabras(cert.valor_total) if cert.valor_total else ""
     lineas_servicio = (
-        get_lineas_servicio(cert.empresa, cert.nombre_servicio, cert.valor_total)
+        await servicio_service.get_lineas_for_cert(db, cert.empresa, cert.nombre_servicio, cert.valor_total)
         if cert.valor_total
         else []
     )
@@ -467,7 +467,17 @@ async def download_certificate_pdf(
         )
 
     signer_nombre, signer_cargo = _signer(cert)
-    pdf_bytes = pdf_service.build_certificate_pdf(cert, signer_name=signer_nombre, signer_cargo=signer_cargo)
+    lineas_servicio = (
+        await servicio_service.get_lineas_for_cert(db, cert.empresa, cert.nombre_servicio, cert.valor_total)
+        if cert.valor_total
+        else None
+    )
+    pdf_bytes = pdf_service.build_certificate_pdf(
+        cert,
+        signer_name=signer_nombre,
+        signer_cargo=signer_cargo,
+        lineas_servicio=lineas_servicio,
+    )
     await log_action(
         db,
         actor_user_id=session.user.id,
