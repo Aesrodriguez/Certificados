@@ -6,4 +6,4 @@ exec gunicorn app.main:app \
   -w 2 \
   --bind 0.0.0.0:${PORT:-8000} \
   --timeout 60 \
-  --keepalive 5
+  --keep-alive 5
