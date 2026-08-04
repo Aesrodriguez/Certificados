@@ -253,7 +253,15 @@
 
         <div class="cert-certificamos">CERTIFICAMOS</div>
 
+        {% set es_recordar = "recordar" in (cert.empresa or "")|lower %}
         <div class="cert-body">
+            {% if es_recordar %}
+            Que el (la) señor (a) <strong>{{ cert.fallecido_nombre_completo }}</strong>,
+            identificado (a) con la cédula de ciudadanía N° {{ cert.fallecido_numero_documento }}
+            (Q.E.P.D); era titular de los servicios que adquirió en nuestra empresa que se
+            relacionan a continuación. Fecha de Defunción el día
+            {% if cert.fallecido_fecha_fallecimiento %}{{ issue_fallecimiento }}{% else %}-{% endif %}.
+            {% else %}
             Que el (la) señor (a) <strong>{{ cert.cliente_nombre_completo }}</strong>,
             identificado (a) con la cédula de ciudadanía N° {{ cert.cliente_numero_documento }};
             titular de los servicios que adquirió en nuestra empresa que se relaciona
@@ -262,9 +270,8 @@
             identificado(a) con la cédula de ciudadanía N° {{ cert.fallecido_numero_documento }}
             (Q.E.P.D);
             Fecha de Defunción el día
-            {% if cert.fallecido_fecha_fallecimiento %}
-                {{ issue_fallecimiento }}
-            {% else %}-{% endif %}.
+            {% if cert.fallecido_fecha_fallecimiento %}{{ issue_fallecimiento }}{% else %}-{% endif %}.
+            {% endif %}
         </div>
 
         {% if lineas_servicio %}
@@ -325,12 +332,14 @@
         {% endif %}
         {% endif %}
 
+        {% if not es_recordar %}
         <div class="cert-iva">
             Producto Excluido de IVA: Conforme con lo dispuesto por el Artículo 476, numeral 14
             del estatuto tributario, se encuentran excluidos del impuesto sobre las ventas los
             Servicios Funerarios, los de Cremación, Inhumación y Exhumación de Cadáveres, Alquiler
             y Mantenimiento de Tumbas y Mausoleos.
         </div>
+        {% endif %}
 
         <div class="cert-footer">
             Se expide la presente certificación a solicitud del interesado a los

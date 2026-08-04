@@ -308,15 +308,26 @@ def build_certificate_pdf(
 
     # ── Body paragraph ────────────────────────────────────────────────────────
     fallecimiento = _fecha_larga(cert.fallecido_fecha_fallecimiento) if cert.fallecido_fecha_fallecimiento else "-"
-    body_text = (
-        f"Que el (la) señor (a) <b>{cert.cliente_nombre_completo}</b>, "
-        f"identificado (a) con la cédula de ciudadanía N° {cert.cliente_numero_documento}; "
-        f"titular de los servicios que adquirió en nuestra empresa que se relaciona "
-        f"a continuación. Los cuales fueron utilizados con el beneficiario (a) "
-        f"<b>{cert.fallecido_nombre_completo}</b> identificado(a) con la cédula de "
-        f"ciudadanía N° {cert.fallecido_numero_documento} (Q.E.P.D); "
-        f"Fecha de Defunción el día {fallecimiento}."
-    )
+    es_recordar = "recordar" in (cert.empresa or "").lower()
+
+    if es_recordar:
+        # RECORDAR: el fallecido es el titular del plan — no repetir como beneficiario
+        body_text = (
+            f"Que el (la) señor (a) <b>{cert.fallecido_nombre_completo}</b>, "
+            f"identificado (a) con la cédula de ciudadanía N° {cert.fallecido_numero_documento} (Q.E.P.D); "
+            f"era titular de los servicios que adquirió en nuestra empresa que se relacionan "
+            f"a continuación. Fecha de Defunción el día {fallecimiento}."
+        )
+    else:
+        body_text = (
+            f"Que el (la) señor (a) <b>{cert.cliente_nombre_completo}</b>, "
+            f"identificado (a) con la cédula de ciudadanía N° {cert.cliente_numero_documento}; "
+            f"titular de los servicios que adquirió en nuestra empresa que se relaciona "
+            f"a continuación. Los cuales fueron utilizados con el beneficiario (a) "
+            f"<b>{cert.fallecido_nombre_completo}</b> identificado(a) con la cédula de "
+            f"ciudadanía N° {cert.fallecido_numero_documento} (Q.E.P.D); "
+            f"Fecha de Defunción el día {fallecimiento}."
+        )
     story.append(Paragraph(body_text, _body))
     story.append(Spacer(1, 0.3 * cm))
 
@@ -409,14 +420,15 @@ def build_certificate_pdf(
                 _total,
             ))
 
-    # ── IVA exclusion ─────────────────────────────────────────────────────────
-    story.append(Paragraph(
-        "Producto Excluido de IVA: Conforme con lo dispuesto por el Artículo 476, numeral 14 "
-        "del estatuto tributario, se encuentran excluidos del impuesto sobre las ventas los "
-        "Servicios Funerarios, los de Cremación, Inhumación y Exhumación de Cadáveres, Alquiler "
-        "y Mantenimiento de Tumbas y Mausoleos.",
-        _iva,
-    ))
+    # ── IVA exclusion (solo PARQUES Y FUNERARIAS — RECORDAR emite certificación, no factura) ──
+    if not es_recordar:
+        story.append(Paragraph(
+            "Producto Excluido de IVA: Conforme con lo dispuesto por el Artículo 476, numeral 14 "
+            "del estatuto tributario, se encuentran excluidos del impuesto sobre las ventas los "
+            "Servicios Funerarios, los de Cremación, Inhumación y Exhumación de Cadáveres, Alquiler "
+            "y Mantenimiento de Tumbas y Mausoleos.",
+            _iva,
+        ))
 
     # ── Issue paragraph ───────────────────────────────────────────────────────
     footer_text = (
