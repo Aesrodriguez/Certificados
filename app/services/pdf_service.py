@@ -233,6 +233,19 @@ def get_lineas_servicio(
     return calculadas
 
 
+def encrypt_pdf(pdf_bytes: bytes, password: str) -> bytes:
+    """Encrypt PDF with the given user password using pypdf."""
+    from pypdf import PdfReader, PdfWriter
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+    writer.encrypt(user_password=password, owner_password=None)
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
 def _draw_letterhead(canvas, doc):
     """Draw the GRUPO RECORDAR letterhead as full-page background on every page."""
     canvas.saveState()
@@ -335,6 +348,21 @@ def build_certificate_pdf(
         ])
 
         if cert.valor_total:
+            # Total at the top of the table
+            palabras_top = _numero_a_palabras(cert.valor_total)
+            total_top = Table(
+                [[Paragraph(f"TOTAL: {palabras_top} PESOS M/L", _svc_bold),
+                  Paragraph(f"$ {_formato_cop(cert.valor_total)}", _svc_r)]],
+                colWidths=[svc_col, val_col],
+            )
+            total_top.setStyle(TableStyle([
+                ("LINEBELOW", (0, 0), (-1, 0), 0.3, colors.HexColor("#aaaaaa")),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+            story.append(total_top)
+
             # Desglose completo por porcentajes
             lineas = (
                 lineas_servicio
@@ -412,7 +440,8 @@ def build_certificate_pdf(
 
     story.append(Paragraph(signer_name or "Administrador de Ciudad", _sig_name))
     story.append(Paragraph(signer_cargo or "Administrador de Ciudad", _sig_role))
-    story.append(Paragraph(issue.strftime("%d/%m/%Y"), _sig_role))
+    entry_date = cert.created_at.strftime("%d/%m/%Y") if cert.created_at else issue.strftime("%d/%m/%Y")
+    story.append(Paragraph(entry_date, _sig_role))
 
     doc.build(story)
     return buffer.getvalue()

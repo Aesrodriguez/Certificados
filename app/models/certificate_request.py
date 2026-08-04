@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, Text, Uuid
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, JSON, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -75,6 +75,7 @@ class CertificateRequest(Base, UUIDPKMixin, TimestampMixin):
     nombre_servicio: Mapped[str | None] = mapped_column(String(255), nullable=True)
     descripcion_servicio: Mapped[str | None] = mapped_column(String(255), nullable=True)
     valor_total: Mapped[int | None] = mapped_column(nullable=True)
+    servicios_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     asesor: Mapped["User"] = relationship(foreign_keys=[asesor_id])
     revisor: Mapped["User | None"] = relationship(foreign_keys=[revisor_id])

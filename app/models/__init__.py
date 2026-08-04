@@ -1,3 +1,4 @@
+from app.models.appsetting import AppSetting
 from app.models.audit_log import AuditActionEnum, AuditLog
 from app.models.certificate_request import CertificateRequest, StatusEnum
 from app.models.password_reset_token import PasswordResetToken
@@ -16,4 +17,5 @@ __all__ = [
     "PasswordResetToken",
     "Servicio",
     "ServicioLinea",
+    "AppSetting",
 ]

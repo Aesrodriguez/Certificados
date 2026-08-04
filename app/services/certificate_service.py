@@ -183,7 +183,11 @@ async def approve(
 async def send_certificate_email(
     db: AsyncSession, *, cert: CertificateRequest, actor: User, ip_address: str | None
 ) -> bool:
-    from app.services import servicio_service
+    from app.services import appsetting_service, servicio_service
+
+    email_enabled = await appsetting_service.get_setting(db, "email_enabled", default="false")
+    if email_enabled != "true":
+        return True  # email disabled by admin — approval proceeds silently
 
     signer_nombre = settings.FIRMA_NOMBRE.strip() or "Administrador de Ciudad"
     signer_cargo = settings.FIRMA_CARGO.strip() or "Administrador de Ciudad"
@@ -191,7 +195,8 @@ async def send_certificate_email(
     lineas_servicio = None
     if cert.valor_total:
         lineas_servicio = await servicio_service.get_lineas_for_cert(
-            db, cert.empresa, cert.nombre_servicio, cert.valor_total
+            db, cert.empresa, cert.nombre_servicio, cert.valor_total,
+            servicios_json=cert.servicios_json,
         )
 
     pdf_bytes = pdf_service.build_certificate_pdf(

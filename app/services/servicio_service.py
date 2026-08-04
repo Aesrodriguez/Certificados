@@ -102,8 +102,15 @@ async def get_lineas_for_cert(
     empresa: str | None,
     nombre_servicio: str | None,
     valor_total: int,
+    servicios_json: list | None = None,
 ) -> list[tuple[str, int]]:
-    """DB-backed service breakdown lookup, falls back to hardcoded if no match."""
+    """DB-backed service breakdown lookup, falls back to hardcoded if no match.
+
+    If servicios_json contains explicit line items they are returned directly
+    without any template lookup.
+    """
+    if servicios_json:
+        return [(item["nombre"], item["valor"]) for item in servicios_json]
     try:
         result = await db.execute(
             select(Servicio)

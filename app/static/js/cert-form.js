@@ -70,6 +70,73 @@ document.addEventListener('DOMContentLoaded', function () {
   if (fechaNac)  fechaNac.addEventListener('change',  function () { validarFecha(fechaNac,  errNac);  });
   if (fechaFall) fechaFall.addEventListener('change', function () { validarFecha(fechaFall, errFall); });
 
+  /* ── Servicios dinámicos ── */
+  var container  = document.getElementById('svcsContainer');
+  var emptyNote  = document.getElementById('svcsEmpty');
+  var valorTotal = document.getElementById('valorTotal');
+  var btnAdd     = document.getElementById('btnAddSvc');
+
+  if (container && btnAdd) {
+
+    function recalcTotal() {
+      var rows = container.querySelectorAll('.svc-row');
+      emptyNote.style.display = rows.length === 0 ? '' : 'none';
+      if (rows.length === 0) return;
+
+      var sum = 0;
+      rows.forEach(function (row) {
+        var v = parseInt(row.querySelector('.svc-val').value || '0', 10);
+        if (!isNaN(v)) sum += v;
+      });
+      if (valorTotal) valorTotal.value = sum > 0 ? sum : '';
+    }
+
+    function addRow(nombre, valor) {
+      var idx = container.querySelectorAll('.svc-row').length;
+      var div = document.createElement('div');
+      div.className = 'svc-row row g-2 mb-2 align-items-center';
+      div.innerHTML =
+        '<div class="col">' +
+          '<input type="text" class="form-control form-control-sm svc-nom" name="svc_nombre" ' +
+                 'placeholder="Nombre del ítem" value="' + (nombre || '').replace(/"/g, '&quot;') + '" required>' +
+        '</div>' +
+        '<div class="col-md-3">' +
+          '<input type="number" class="form-control form-control-sm svc-val" name="svc_valor" ' +
+                 'placeholder="Valor COP" min="0" value="' + (valor || '') + '">' +
+        '</div>' +
+        '<div class="col-auto">' +
+          '<button type="button" class="btn btn-sm btn-outline-danger svc-del" title="Eliminar">' +
+            '<i class="bi bi-trash"></i>' +
+          '</button>' +
+        '</div>';
+
+      div.querySelector('.svc-del').addEventListener('click', function () {
+        div.remove();
+        recalcTotal();
+      });
+      div.querySelector('.svc-val').addEventListener('input', recalcTotal);
+
+      container.appendChild(div);
+      recalcTotal();
+      div.querySelector('.svc-nom').focus();
+    }
+
+    btnAdd.addEventListener('click', function () { addRow('', ''); });
+
+    /* Initialise from server-side data attribute */
+    var raw = container.getAttribute('data-initial');
+    if (raw) {
+      try {
+        var items = JSON.parse(raw);
+        if (Array.isArray(items)) {
+          items.forEach(function (item) { addRow(item.nombre, item.valor); });
+        }
+      } catch (e) { /* ignore parse errors */ }
+    }
+
+    recalcTotal();
+  }
+
   /* ── Validación general al enviar ── */
   var certForm = document.getElementById('certForm');
   if (!certForm) return;

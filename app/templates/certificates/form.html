@@ -188,51 +188,47 @@
 
     {# ── Servicios utilizados ── #}
     <div class="card mb-3">
-        <div class="card-header fw-semibold">Servicios utilizados</div>
+        <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+            Servicios utilizados
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddSvc">
+                <i class="bi bi-plus-lg me-1"></i>Agregar ítem
+            </button>
+        </div>
         <div class="card-body">
-            <div class="row">
-                <div class="col-md-6 mb-2">
-                    <label class="form-label">Nombre del servicio</label>
+            <div class="row mb-3">
+                <div class="col-md-7 mb-2">
+                    <label class="form-label">Tipo de servicio <span class="text-muted">(plantilla automática)</span></label>
                     <select class="form-select" name="nombre_servicio" id="selectServicio">
                         <option value="">-- Seleccionar --</option>
-                        {# Opciones RECORDAR #}
                         <optgroup label="RECORDAR" class="opts-recordar">
-                            {% for s in [
-                                "SERVICIO FUNERARIO CON TRANSPORTE, VELACIÓN Y MISA",
-                                "SERVICIO FUNERARIO CON TRANSPORTE Y VELACIÓN",
-                                "SERVICIO FUNERARIO"
-                            ] %}
-                            <option value="{{ s }}" class="opt-recordar"
-                                {% if val('nombre_servicio') == s %}selected{% endif %}>{{ s }}</option>
+                            {% for s in ["SERVICIO FUNERARIO CON TRANSPORTE, VELACIÓN Y MISA","SERVICIO FUNERARIO CON TRANSPORTE Y VELACIÓN","SERVICIO FUNERARIO"] %}
+                            <option value="{{ s }}" class="opt-recordar" {% if val('nombre_servicio') == s %}selected{% endif %}>{{ s }}</option>
                             {% endfor %}
                         </optgroup>
-                        {# Opciones PARQUES Y FUNERARIAS #}
                         <optgroup label="PARQUES Y FUNERARIAS" class="opts-pyf">
-                            {% for s in [
-                                "SERVICIO FUNERARIO CREMACIÓN",
-                                "SERVICIO FUNERARIO GRAN EXTRA",
-                                "SERVICIO FUNERARIO ESTILO J",
-                                "SERVICIO FUNERARIO ESTILO K",
-                                "SERVICIO FUNERARIO ESTILO L",
-                                "SERVICIO FUNERARIO ESTÁNDAR"
-                            ] %}
-                            <option value="{{ s }}" class="opt-pyf"
-                                {% if val('nombre_servicio') == s %}selected{% endif %}>{{ s }}</option>
+                            {% for s in ["SERVICIO FUNERARIO CREMACIÓN","SERVICIO FUNERARIO GRAN EXTRA","SERVICIO FUNERARIO ESTILO J","SERVICIO FUNERARIO ESTILO K","SERVICIO FUNERARIO ESTILO L","SERVICIO FUNERARIO ESTÁNDAR"] %}
+                            <option value="{{ s }}" class="opt-pyf" {% if val('nombre_servicio') == s %}selected{% endif %}>{{ s }}</option>
                             {% endfor %}
                         </optgroup>
                     </select>
+                    <div class="form-text">Solo aplica si no se agregan ítems manuales abajo.</div>
                 </div>
-                <div class="col-md-6 mb-2">
-                    <label class="form-label">Descripción del servicio</label>
-                    <input class="form-control" name="descripcion_servicio"
-                           placeholder="Ej: Inhumación - Destino final"
-                           value="{{ val('descripcion_servicio') }}">
-                </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label">Valor total (COP)</label>
-                    <input class="form-control" type="number" min="0" name="valor_total"
+            </div>
+
+            {# Dynamic service line items — initialized via JS with cert_servicios data #}
+            <div id="svcsContainer" class="mb-2"
+                 data-initial="{{ cert_servicios | tojson | e }}"></div>
+            <div id="svcsEmpty" class="text-muted small mb-2">
+                Sin ítems manuales — se usará la plantilla automática según empresa/tipo de servicio.
+            </div>
+
+            <div class="row mt-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Valor total (COP)</label>
+                    <input class="form-control" type="number" min="0" name="valor_total" id="valorTotal"
                            placeholder="Ej: 18240000"
                            value="{{ val('valor_total') }}">
+                    <div class="form-text" id="valorTotalNote">Se suma automáticamente de los ítems cuando los hay.</div>
                 </div>
             </div>
         </div>
@@ -259,11 +255,6 @@
                     <input class="form-control" name="numero_factura"
                            placeholder="Ej: PC124123"
                            value="{{ val('numero_factura') }}">
-                </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label">Número de aviso</label>
-                    <input class="form-control solo-nums" name="numero_aviso"
-                           inputmode="numeric" value="{{ val('numero_aviso') }}">
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Plan o póliza</label>

@@ -54,12 +54,29 @@
 </dl>
 
 {# ── Servicios ── #}
-{% if cert.nombre_servicio or cert.valor_total %}
+{% if cert.servicios_json or cert.nombre_servicio or cert.valor_total %}
 <h2 class="h6 text-muted mt-3">Servicios</h2>
+{% if cert.servicios_json %}
+<table class="table table-sm table-borderless mb-1" style="max-width:500px">
+    {% for item in cert.servicios_json %}
+    <tr>
+        <td>{{ item.nombre }}</td>
+        <td class="text-end fw-semibold">$ {{ "{:,}".format(item.valor).replace(",", ".") }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% elif cert.nombre_servicio %}
 <dl class="row">
-    {% if cert.nombre_servicio %}<dt class="col-sm-3">Servicio</dt><dd class="col-sm-9">{{ cert.nombre_servicio }}{% if cert.descripcion_servicio %} <span class="text-muted">({{ cert.descripcion_servicio }})</span>{% endif %}</dd>{% endif %}
-    {% if cert.valor_total %}<dt class="col-sm-3">Valor total</dt><dd class="col-sm-9 fw-bold">$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }} COP</dd>{% endif %}
+    <dt class="col-sm-3">Servicio</dt>
+    <dd class="col-sm-9">{{ cert.nombre_servicio }}{% if cert.descripcion_servicio %} <span class="text-muted">({{ cert.descripcion_servicio }})</span>{% endif %}</dd>
 </dl>
+{% endif %}
+{% if cert.valor_total %}
+<dl class="row">
+    <dt class="col-sm-3">Valor total</dt>
+    <dd class="col-sm-9 fw-bold">$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }} COP</dd>
+</dl>
+{% endif %}
 {% endif %}
 
 {# ── Datos administrativos ── #}

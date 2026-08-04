@@ -20,12 +20,28 @@ from app.models.user import RoleEnum
 from app.schemas.certificate_request import CertificateRequestIn
 from app.services import certificate_service, pdf_service, servicio_service
 from app.services.audit_service import log_action
-from app.services.pdf_service import _numero_a_palabras, _MESES
+from app.services.pdf_service import _numero_a_palabras, _MESES, encrypt_pdf
 
 router = APIRouter(
     prefix="/certificates",
     dependencies=[Depends(require_role(RoleEnum.ADMIN, RoleEnum.ASESOR, RoleEnum.REVISOR))],
 )
+
+
+def _parse_servicios(form) -> list | None:
+    nombres = form.getlist("svc_nombre")
+    valores = form.getlist("svc_valor")
+    lineas = []
+    for nom, val_str in zip(nombres, valores):
+        nom = nom.strip()
+        if not nom:
+            continue
+        try:
+            val = int(val_str or 0)
+        except (ValueError, TypeError):
+            val = 0
+        lineas.append({"nombre": nom, "valor": val})
+    return lineas or None
 
 
 def _ip(request: Request) -> str | None:
@@ -93,7 +109,7 @@ async def new_certificate_form(
     return templates.TemplateResponse(
         request,
         "certificates/form.html",
-        _ctx(session, cert=None, field_errors={}, form_action="/certificates"),
+        _ctx(session, cert=None, cert_servicios=[], field_errors={}, form_action="/certificates"),
     )
 
 
@@ -104,15 +120,18 @@ async def create_certificate(
     session: DbSession = Depends(get_current_session),
 ):
     form = await request.form()
+    form_dict = dict(form)
+    form_dict["servicios_json"] = _parse_servicios(form)
     try:
-        data = CertificateRequestIn.model_validate(dict(form))
+        data = CertificateRequestIn.model_validate(form_dict)
     except pydantic.ValidationError as exc:
         return templates.TemplateResponse(
             request,
             "certificates/form.html",
             _ctx(
                 session,
-                cert=dict(form),
+                cert=form_dict,
+                cert_servicios=form_dict.get("servicios_json") or [],
                 field_errors=_field_errors(exc),
                 form_action="/certificates",
             ),
@@ -226,7 +245,7 @@ async def edit_certificate_form(
     return templates.TemplateResponse(
         request,
         "certificates/form.html",
-        _ctx(session, cert=cert, field_errors={}, form_action=f"/certificates/{cert.id}"),
+        _ctx(session, cert=cert, cert_servicios=cert.servicios_json or [], field_errors={}, form_action=f"/certificates/{cert.id}"),
     )
 
 
@@ -244,15 +263,18 @@ async def update_certificate(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     form = await request.form()
+    form_dict = dict(form)
+    form_dict["servicios_json"] = _parse_servicios(form)
     try:
-        data = CertificateRequestIn.model_validate(dict(form))
+        data = CertificateRequestIn.model_validate(form_dict)
     except pydantic.ValidationError as exc:
         return templates.TemplateResponse(
             request,
             "certificates/form.html",
             _ctx(
                 session,
-                cert=dict(form),
+                cert=form_dict,
+                cert_servicios=form_dict.get("servicios_json") or [],
                 field_errors=_field_errors(exc),
                 form_action=f"/certificates/{cert_id}",
             ),
@@ -409,9 +431,13 @@ async def preview_certificate(
     can_review = session.user.role in (RoleEnum.REVISOR, RoleEnum.ADMIN) and cert.status.value == "pending"
 
     issue_date_obj = cert.reviewed_at.date() if cert.reviewed_at else date.today()
+    entry_date = cert.created_at.strftime("%d/%m/%Y") if cert.created_at else issue_date_obj.strftime("%d/%m/%Y")
     total_palabras = _numero_a_palabras(cert.valor_total) if cert.valor_total else ""
     lineas_servicio = (
-        await servicio_service.get_lineas_for_cert(db, cert.empresa, cert.nombre_servicio, cert.valor_total)
+        await servicio_service.get_lineas_for_cert(
+            db, cert.empresa, cert.nombre_servicio, cert.valor_total,
+            servicios_json=cert.servicios_json,
+        )
         if cert.valor_total
         else []
     )
@@ -442,6 +468,7 @@ async def preview_certificate(
             "issue_date": issue_date_obj.strftime("%d/%m/%Y"),
             "issue_fallecimiento": issue_fallecimiento,
             "lineas_servicio": lineas_servicio,
+            "entry_date": entry_date,
         },
     )
 
@@ -468,7 +495,10 @@ async def download_certificate_pdf(
 
     signer_nombre, signer_cargo = _signer(cert)
     lineas_servicio = (
-        await servicio_service.get_lineas_for_cert(db, cert.empresa, cert.nombre_servicio, cert.valor_total)
+        await servicio_service.get_lineas_for_cert(
+            db, cert.empresa, cert.nombre_servicio, cert.valor_total,
+            servicios_json=cert.servicios_json,
+        )
         if cert.valor_total
         else None
     )
@@ -478,6 +508,8 @@ async def download_certificate_pdf(
         signer_cargo=signer_cargo,
         lineas_servicio=lineas_servicio,
     )
+    if cert.fallecido_numero_documento:
+        pdf_bytes = encrypt_pdf(pdf_bytes, cert.fallecido_numero_documento)
     await log_action(
         db,
         actor_user_id=session.user.id,

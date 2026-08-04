@@ -277,6 +277,12 @@
                 </tr>
             </thead>
             <tbody>
+                {% if cert.valor_total %}
+                <tr>
+                    <td><strong>TOTAL: {{ total_palabras }} PESOS&nbsp;M/L</strong></td>
+                    <td class="val-col"><strong>$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}</strong></td>
+                </tr>
+                {% endif %}
                 {% for nombre, valor in lineas_servicio %}
                 <tr>
                     <td>{{ nombre | upper }}{{ "." * [1, 85 - nombre|length]|max }}</td>
@@ -340,7 +346,7 @@
             <img src="/static/img/signature.png" alt="Firma">
             <div class="sig-name">{{ asesor_name }}</div>
             <div class="sig-role">{{ firma_cargo }}</div>
-            <div class="sig-role">{{ issue_date }}</div>
+            <div class="sig-role">{{ entry_date }}</div>
         </div>
 
     </div>

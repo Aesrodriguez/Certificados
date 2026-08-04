@@ -10,7 +10,7 @@ from app.dependencies.auth import get_current_session, require_role
 from app.dependencies.csrf import verify_csrf
 from app.models.session import Session as DbSession
 from app.models.user import RoleEnum
-from app.services import user_service
+from app.services import appsetting_service, user_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(require_role(RoleEnum.ADMIN))])
@@ -219,3 +219,31 @@ async def enable_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     await user_service.set_user_active(db, actor=session.user, target=target, is_active=True, ip_address=_ip(request))
     return RedirectResponse(url="/admin/users", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# ── Configuración ─────────────────────────────────────────────────────────────
+
+@router.get("/configuracion")
+async def configuracion_page(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    session: DbSession = Depends(get_current_session),
+    msg: str | None = Query(None),
+):
+    email_enabled = await appsetting_service.get_setting(db, "email_enabled", default="false")
+    return templates.TemplateResponse(
+        request, "admin/configuracion.html",
+        _ctx(session, email_enabled=(email_enabled == "true"), msg=msg),
+    )
+
+
+@router.post("/configuracion", dependencies=[Depends(verify_csrf)])
+async def configuracion_save(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    session: DbSession = Depends(get_current_session),
+):
+    form = await request.form()
+    email_enabled = "true" if form.get("email_enabled") == "1" else "false"
+    await appsetting_service.set_setting(db, "email_enabled", email_enabled)
+    return RedirectResponse(url="/admin/configuracion?msg=Configuración+guardada.", status_code=303)

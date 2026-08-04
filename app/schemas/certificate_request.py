@@ -78,6 +78,7 @@ class CertificateRequestIn(BaseModel):
     # Metadatos
     plan_o_poliza: str | None = Field(default=None, max_length=100)
     observaciones: str | None = None
+    servicios_json: list | None = None
 
     @field_validator("fallecido_fecha_nacimiento", mode="before")
     @classmethod
