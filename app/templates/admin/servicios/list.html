@@ -8,7 +8,6 @@
     <h1 class="page-title">Plantillas de Servicios</h1>
     <p class="page-subtitle">
       {{ servicios|length }} servicio{% if servicios|length != 1 %}s{% endif %} configurado{% if servicios|length != 1 %}s{% endif %}
-      — el orden determina qué plantilla se usa cuando una solicitud coincide con varios servicios.
     </p>
   </div>
   <a href="/admin/servicios/new" class="btn btn-primary">
@@ -32,40 +31,48 @@
     <table class="table mb-0">
       <thead>
         <tr>
-          <th style="width:64px;">Orden</th>
+          <th style="width:56px; text-align:center;">#</th>
           <th>Nombre</th>
-          <th class="d-none d-md-table-cell">Clave empresa</th>
-          <th class="d-none d-lg-table-cell">Clave servicio</th>
-          <th style="width:72px; text-align:center;">Líneas</th>
-          <th style="width:88px; text-align:center;">Estado</th>
-          <th style="width:176px; text-align:right;">Acciones</th>
+          <th style="width:200px;">Empresa → Servicio</th>
+          <th style="width:64px; text-align:center;">Líneas</th>
+          <th style="width:84px; text-align:center;">Estado</th>
+          <th style="width:168px; text-align:right;">Acciones</th>
         </tr>
       </thead>
       <tbody>
         {% for svc in servicios %}
         <tr>
-          <td>
-            <span class="badge-status" style="background:#f3f4f6; color:#374151; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:600;">
-              {{ svc.orden }}
-            </span>
+          <td class="text-center">
+            <span style="display:inline-block; min-width:28px; padding:2px 8px; border-radius:20px; background:#f3f4f6; color:#6b7280; font-size:12px; font-weight:600;">{{ svc.orden }}</span>
           </td>
           <td>
             <a href="/admin/servicios/{{ svc.id }}" class="fw-semibold text-decoration-none" style="font-size:13.5px; color:var(--c-text);">
               {{ svc.nombre }}
             </a>
           </td>
-          <td class="d-none d-md-table-cell">
-            <code style="font-size:12px;">{{ svc.empresa_key or '<em style="color:var(--c-muted)">cualquier empresa</em>' }}</code>
-          </td>
-          <td class="d-none d-lg-table-cell">
-            <code style="font-size:12px;">{{ svc.servicio_key or '<em style="color:var(--c-muted)">cualquier servicio</em>' }}</code>
+          <td>
+            <div style="font-size:11.5px; line-height:1.8;">
+              <span style="color:var(--c-muted);">Empresa: </span>
+              {% if svc.empresa_key %}
+                <code style="background:#f0f9ff; color:#0369a1; padding:1px 5px; border-radius:4px; font-size:11px;">{{ svc.empresa_key }}</code>
+              {% else %}
+                <em style="color:var(--c-muted);">cualquiera</em>
+              {% endif %}
+              <br>
+              <span style="color:var(--c-muted);">Servicio: </span>
+              {% if svc.servicio_key %}
+                <code style="background:#f0fdf4; color:#15803d; padding:1px 5px; border-radius:4px; font-size:11px;">{{ svc.servicio_key }}</code>
+              {% else %}
+                <em style="color:var(--c-muted);">cualquiera</em>
+              {% endif %}
+            </div>
           </td>
           <td class="text-center" style="font-size:13px; color:var(--c-muted);">{{ svc.lineas|length }}</td>
           <td class="text-center">
             {% if svc.is_active %}
-            <span class="badge-status" style="background:#dcfce7; color:#15803d; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">Activo</span>
+            <span style="display:inline-block; padding:3px 10px; border-radius:12px; background:#dcfce7; color:#15803d; font-size:11px; font-weight:600;">Activo</span>
             {% else %}
-            <span class="badge-status" style="background:#f3f4f6; color:#6b7280; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">Inactivo</span>
+            <span style="display:inline-block; padding:3px 10px; border-radius:12px; background:#f3f4f6; color:#6b7280; font-size:11px; font-weight:600;">Inactivo</span>
             {% endif %}
           </td>
           <td class="text-end">
@@ -73,7 +80,7 @@
             <a href="/admin/servicios/{{ svc.id }}/edit" class="btn btn-sm btn-outline-primary me-1">Editar</a>
             <form method="post" action="/admin/servicios/{{ svc.id }}/delete"
                   style="display:inline"
-                  data-confirm="¿Eliminar el servicio «{{ svc.nombre }}»? Esta acción no se puede deshacer.">
+                  data-confirm="¿Eliminar «{{ svc.nombre }}»? Esta acción no se puede deshacer.">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
             </form>
@@ -81,7 +88,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="7" class="text-center py-5" style="color:var(--c-muted);">
+          <td colspan="6" class="text-center py-5" style="color:var(--c-muted);">
             No hay servicios configurados.
             <a href="/admin/servicios/new" class="ms-2">Crear el primero</a>
           </td>
@@ -92,14 +99,10 @@
   </div>
 </div>
 
-<div class="card mt-3" style="background:var(--c-surface-alt, #f8f9fa); border:none;">
-  <div class="card-body" style="font-size:13px; color:var(--c-muted); line-height:1.7;">
-    <strong>Cómo funciona el matching:</strong>
-    Para cada solicitud, se recorren los servicios en orden ascendente.
-    La primera plantilla donde la <em>clave empresa</em> aparece dentro del nombre de la empresa de la solicitud
-    <strong>y</strong> la <em>clave servicio</em> aparece dentro del nombre del servicio se usa para el desglose.
-    Claves vacías hacen de comodín (coinciden con cualquier valor).
-  </div>
+<div class="mt-3 p-3" style="background:var(--c-surface-alt, #f8f9fa); border-radius:8px; font-size:12.5px; color:var(--c-muted); line-height:1.7;">
+  <strong style="color:var(--c-text);">Cómo funciona el matching:</strong>
+  Los servicios se evalúan en orden ascendente. Se usa la primera plantilla donde la clave de empresa aparece dentro del nombre de empresa de la solicitud
+  <strong>y</strong> la clave de servicio aparece dentro del nombre del servicio. Claves vacías (<em>cualquiera</em>) coinciden con cualquier valor.
 </div>
 
 <script src="/static/js/confirm-actions.js"></script>
