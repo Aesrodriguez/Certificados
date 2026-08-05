@@ -10,9 +10,88 @@
 </div>
 {% endif %}
 
+<style>
+/* ── Field config cards ── */
+.cfg-field {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px 8px;
+    height: 100%;
+    background: #fff;
+    transition: border-color .15s, background .15s;
+}
+.cfg-field.cfg-locked  { background: #f8fafc; }
+.cfg-field.cfg-neutral { background: #f8fafc; opacity: .65; }
+.cfg-field.cfg-toggle-card:has(.cfg-chk:checked) {
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+.cfg-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0;
+    line-height: 1.3;
+}
+.cfg-mock {
+    height: 28px;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    background: #f1f5f9;
+    margin-top: 6px;
+}
+.cfg-badge-lock {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: #dbeafe;
+    color: #1e40af;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.cfg-badge-neutral {
+    font-size: 10px;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+.cfg-state {
+    font-size: 10.5px;
+    line-height: 1;
+    margin-top: 4px;
+    min-height: 14px;
+}
+.cfg-state .on  { display: none;   color: #059669; }
+.cfg-state .off { display: inline; color: #94a3b8; }
+.cfg-toggle-card:has(.cfg-chk:checked) .cfg-state .on  { display: inline; }
+.cfg-toggle-card:has(.cfg-chk:checked) .cfg-state .off { display: none; }
+
+@media (prefers-color-scheme: dark) {
+    .cfg-field               { background: #1e293b; border-color: #334155; }
+    .cfg-field.cfg-locked,
+    .cfg-field.cfg-neutral   { background: #0f172a; }
+    .cfg-field.cfg-toggle-card:has(.cfg-chk:checked) { background: #064e3b; border-color: #10b981; }
+    .cfg-label               { color: #cbd5e1; }
+    .cfg-mock                { background: #0f172a; border-color: #334155; }
+    .cfg-badge-lock          { background: #1e3a5f; color: #93c5fd; }
+    .cfg-state .off          { color: #64748b; }
+}
+:root[data-theme="dark"] .cfg-field               { background: #1e293b; border-color: #334155; }
+:root[data-theme="dark"] .cfg-field.cfg-locked,
+:root[data-theme="dark"] .cfg-field.cfg-neutral   { background: #0f172a; }
+:root[data-theme="dark"] .cfg-field.cfg-toggle-card:has(.cfg-chk:checked) { background: #064e3b; border-color: #10b981; }
+:root[data-theme="dark"] .cfg-label               { color: #cbd5e1; }
+:root[data-theme="dark"] .cfg-mock                { background: #0f172a; border-color: #334155; }
+:root[data-theme="dark"] .cfg-badge-lock          { background: #1e3a5f; color: #93c5fd; }
+:root[data-theme="dark"] .cfg-state .off          { color: #64748b; }
+</style>
+
 <form method="post" action="/admin/configuracion">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
+    {# ── Correo electrónico ── #}
     <div class="card mb-4">
         <div class="card-header fw-semibold">Correo electrónico</div>
         <div class="card-body">
@@ -41,40 +120,266 @@
         </div>
     </div>
 
+    {# ── Campos obligatorios ── #}
     <div class="card mb-4">
         <div class="card-header fw-semibold">Campos obligatorios del formulario</div>
         <div class="card-body">
-            <p class="text-muted small mb-3">
-                Activa los campos que el asesor <strong>debe</strong> completar al crear o editar una solicitud.
-                Los campos clave (nombre, cédula de solicitante y fallecido; fecha de fallecimiento) son siempre obligatorios.
+            <p class="text-muted small mb-4">
+                Activa los campos que el asesor <strong>debe</strong> completar al crear una solicitud.
+                Los campos con <span class="cfg-badge-lock d-inline-flex"><i class="bi bi-lock-fill me-1"></i>Siempre</span> son fijos y no se pueden cambiar.
             </p>
 
-            <h6 class="mb-2 text-secondary">Datos del solicitante</h6>
+            {# ── Datos del solicitante ── #}
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <div style="width:3px;height:18px;background:#0e7490;border-radius:2px;flex-shrink:0;"></div>
+                <span class="text-muted fw-semibold text-uppercase" style="font-size:11px;letter-spacing:.5px;">Datos del solicitante</span>
+            </div>
             <div class="row g-2 mb-4">
-                {% for fname, flabel, section in configurable_fields %}{% if section == 'solicitante' %}
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox"
-                               name="req_field" value="{{ fname }}" id="req_{{ fname }}"
-                               {% if fname in required_fields %}checked{% endif %}>
-                        <label class="form-check-label" for="req_{{ fname }}">{{ flabel }}</label>
+
+                {# Fila 1: Nombre completo (col-6) | Tipo doc. (col-2) | Número documento (col-4) #}
+                <div class="col-md-6">
+                    <div class="cfg-field cfg-locked">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="cfg-label">Nombre completo</span>
+                            <span class="cfg-badge-lock"><i class="bi bi-lock-fill me-1"></i>Siempre</span>
+                        </div>
+                        <div class="cfg-mock"></div>
                     </div>
                 </div>
-                {% endif %}{% endfor %}
+                <div class="col-md-2">
+                    <div class="cfg-field cfg-neutral">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="cfg-label">Tipo doc.</span>
+                            <span class="cfg-badge-neutral">—</span>
+                        </div>
+                        <div class="cfg-mock"></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-locked">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="cfg-label">Número documento</span>
+                            <span class="cfg-badge-lock"><i class="bi bi-lock-fill me-1"></i>Siempre</span>
+                        </div>
+                        <div class="cfg-mock"></div>
+                    </div>
+                </div>
+
+                {# Fila 2: Teléfono (col-4) | Correo electrónico (col-4) | Parentesco (col-4) #}
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-toggle-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <label class="cfg-label" for="req_cliente_telefono">Teléfono</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                <input class="form-check-input cfg-chk" type="checkbox" role="switch"
+                                       id="req_cliente_telefono" name="req_field" value="cliente_telefono"
+                                       {% if 'cliente_telefono' in required_fields %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="cfg-mock"></div>
+                        <div class="cfg-state">
+                            <span class="on"><i class="bi bi-check-circle-fill me-1"></i>Obligatorio</span>
+                            <span class="off">Opcional</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-toggle-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <label class="cfg-label" for="req_cliente_email">Correo electrónico</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                <input class="form-check-input cfg-chk" type="checkbox" role="switch"
+                                       id="req_cliente_email" name="req_field" value="cliente_email"
+                                       {% if 'cliente_email' in required_fields %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="cfg-mock"></div>
+                        <div class="cfg-state">
+                            <span class="on"><i class="bi bi-check-circle-fill me-1"></i>Obligatorio</span>
+                            <span class="off">Opcional</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-toggle-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <label class="cfg-label" for="req_cliente_parentesco">Parentesco con el fallecido</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                <input class="form-check-input cfg-chk" type="checkbox" role="switch"
+                                       id="req_cliente_parentesco" name="req_field" value="cliente_parentesco"
+                                       {% if 'cliente_parentesco' in required_fields %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="cfg-mock"></div>
+                        <div class="cfg-state">
+                            <span class="on"><i class="bi bi-check-circle-fill me-1"></i>Obligatorio</span>
+                            <span class="off">Opcional</span>
+                        </div>
+                    </div>
+                </div>
+
+                {# Fila 3: Dirección (col-6) | Ciudad (col-6) #}
+                <div class="col-md-6">
+                    <div class="cfg-field cfg-toggle-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <label class="cfg-label" for="req_cliente_direccion">Dirección</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                <input class="form-check-input cfg-chk" type="checkbox" role="switch"
+                                       id="req_cliente_direccion" name="req_field" value="cliente_direccion"
+                                       {% if 'cliente_direccion' in required_fields %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="cfg-mock"></div>
+                        <div class="cfg-state">
+                            <span class="on"><i class="bi bi-check-circle-fill me-1"></i>Obligatorio</span>
+                            <span class="off">Opcional</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="cfg-field cfg-toggle-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <label class="cfg-label" for="req_cliente_ciudad">Ciudad</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                <input class="form-check-input cfg-chk" type="checkbox" role="switch"
+                                       id="req_cliente_ciudad" name="req_field" value="cliente_ciudad"
+                                       {% if 'cliente_ciudad' in required_fields %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="cfg-mock"></div>
+                        <div class="cfg-state">
+                            <span class="on"><i class="bi bi-check-circle-fill me-1"></i>Obligatorio</span>
+                            <span class="off">Opcional</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <h6 class="mb-2 text-secondary">Datos del fallecido</h6>
+            {# ── Datos del fallecido ── #}
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <div style="width:3px;height:18px;background:#7c3aed;border-radius:2px;flex-shrink:0;"></div>
+                <span class="text-muted fw-semibold text-uppercase" style="font-size:11px;letter-spacing:.5px;">Datos del fallecido</span>
+            </div>
             <div class="row g-2">
-                {% for fname, flabel, section in configurable_fields %}{% if section == 'fallecido' %}
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox"
-                               name="req_field" value="{{ fname }}" id="req_{{ fname }}"
-                               {% if fname in required_fields %}checked{% endif %}>
-                        <label class="form-check-label" for="req_{{ fname }}">{{ flabel }}</label>
+
+                {# Fila 1: Nombre completo (col-6) | Tipo doc. (col-2) | Número documento (col-4) #}
+                <div class="col-md-6">
+                    <div class="cfg-field cfg-locked">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="cfg-label">Nombre completo</span>
+                            <span class="cfg-badge-lock"><i class="bi bi-lock-fill me-1"></i>Siempre</span>
+                        </div>
+                        <div class="cfg-mock"></div>
                     </div>
                 </div>
-                {% endif %}{% endfor %}
+                <div class="col-md-2">
+                    <div class="cfg-field cfg-neutral">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="cfg-label">Tipo doc.</span>
+                            <span class="cfg-badge-neutral">—</span>
+                        </div>
+                        <div class="cfg-mock"></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-locked">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="cfg-label">Número documento</span>
+                            <span class="cfg-badge-lock"><i class="bi bi-lock-fill me-1"></i>Siempre</span>
+                        </div>
+                        <div class="cfg-mock"></div>
+                    </div>
+                </div>
+
+                {# Fila 2: Fecha nacimiento (col-4) | Fecha fallecimiento (col-4) | Lugar fallecimiento (col-4) #}
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-toggle-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <label class="cfg-label" for="req_fallecido_fecha_nacimiento">Fecha de nacimiento</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                <input class="form-check-input cfg-chk" type="checkbox" role="switch"
+                                       id="req_fallecido_fecha_nacimiento" name="req_field" value="fallecido_fecha_nacimiento"
+                                       {% if 'fallecido_fecha_nacimiento' in required_fields %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="cfg-mock"></div>
+                        <div class="cfg-state">
+                            <span class="on"><i class="bi bi-check-circle-fill me-1"></i>Obligatorio</span>
+                            <span class="off">Opcional</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-locked">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="cfg-label">Fecha de fallecimiento</span>
+                            <span class="cfg-badge-lock"><i class="bi bi-lock-fill me-1"></i>Siempre</span>
+                        </div>
+                        <div class="cfg-mock"></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-toggle-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <label class="cfg-label" for="req_fallecido_lugar_fallecimiento">Lugar de fallecimiento</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                <input class="form-check-input cfg-chk" type="checkbox" role="switch"
+                                       id="req_fallecido_lugar_fallecimiento" name="req_field" value="fallecido_lugar_fallecimiento"
+                                       {% if 'fallecido_lugar_fallecimiento' in required_fields %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="cfg-mock"></div>
+                        <div class="cfg-state">
+                            <span class="on"><i class="bi bi-check-circle-fill me-1"></i>Obligatorio</span>
+                            <span class="off">Opcional</span>
+                        </div>
+                    </div>
+                </div>
+
+                {# Fila 3: Fecha afiliación (col-4) | Causa fallecimiento (col-4) | N.° acta defunción (col-4) #}
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-neutral">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="cfg-label">Fecha de afiliación</span>
+                            <span class="cfg-badge-neutral">—</span>
+                        </div>
+                        <div class="cfg-mock"></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-toggle-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <label class="cfg-label" for="req_fallecido_causa_fallecimiento">Causa de fallecimiento</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                <input class="form-check-input cfg-chk" type="checkbox" role="switch"
+                                       id="req_fallecido_causa_fallecimiento" name="req_field" value="fallecido_causa_fallecimiento"
+                                       {% if 'fallecido_causa_fallecimiento' in required_fields %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="cfg-mock"></div>
+                        <div class="cfg-state">
+                            <span class="on"><i class="bi bi-check-circle-fill me-1"></i>Obligatorio</span>
+                            <span class="off">Opcional</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="cfg-field cfg-toggle-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <label class="cfg-label" for="req_fallecido_numero_acta_defuncion">N.º acta de defunción</label>
+                            <div class="form-check form-switch mb-0 flex-shrink-0">
+                                <input class="form-check-input cfg-chk" type="checkbox" role="switch"
+                                       id="req_fallecido_numero_acta_defuncion" name="req_field" value="fallecido_numero_acta_defuncion"
+                                       {% if 'fallecido_numero_acta_defuncion' in required_fields %}checked{% endif %}>
+                            </div>
+                        </div>
+                        <div class="cfg-mock"></div>
+                        <div class="cfg-state">
+                            <span class="on"><i class="bi bi-check-circle-fill me-1"></i>Obligatorio</span>
+                            <span class="off">Opcional</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
