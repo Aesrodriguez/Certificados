@@ -3,107 +3,150 @@
 
 {% block content %}
 
-<div class="page-header">
+<div class="d-flex align-items-start justify-content-between mb-4">
   <div>
-    <h1 class="page-title">Plantillas de Servicios</h1>
-    <p class="page-subtitle">
-      {{ servicios|length }} servicio{% if servicios|length != 1 %}s{% endif %} configurado{% if servicios|length != 1 %}s{% endif %}
+    <h1 class="h4 mb-0">Plantillas de Servicios</h1>
+    <p class="text-muted small mb-0 mt-1">
+      {{ servicios|length }} plantilla{% if servicios|length != 1 %}s{% endif %} configurada{% if servicios|length != 1 %}s{% endif %} &mdash; se aplican en orden ascendente
     </p>
   </div>
   <a href="/admin/servicios/new" class="btn btn-primary">
-    <i class="bi bi-plus-lg me-2"></i>Nuevo servicio
+    <i class="bi bi-plus-lg me-2"></i>Nueva plantilla
   </a>
 </div>
 
 {% if msg %}
-<div class="alert alert-success d-flex align-items-center gap-2 mb-3" style="border-radius:8px;">
+<div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2 mb-3" role="alert">
   <i class="bi bi-check-circle-fill"></i><span>{{ msg }}</span>
+  <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
 </div>
 {% endif %}
 {% if error %}
-<div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:8px;">
+<div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2 mb-3" role="alert">
   <i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span>
+  <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
 </div>
 {% endif %}
 
-<div class="card">
-  <div class="table-responsive">
-    <table class="table mb-0">
-      <thead>
-        <tr>
-          <th style="width:56px; text-align:center;">#</th>
-          <th>Nombre</th>
-          <th style="width:200px;">Empresa → Servicio</th>
-          <th style="width:64px; text-align:center;">Líneas</th>
-          <th style="width:84px; text-align:center;">Estado</th>
-          <th style="width:168px; text-align:right;">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for svc in servicios %}
-        <tr>
-          <td class="text-center">
-            <span style="display:inline-block; min-width:28px; padding:2px 8px; border-radius:20px; background:#f3f4f6; color:#6b7280; font-size:12px; font-weight:600;">{{ svc.orden }}</span>
-          </td>
-          <td>
-            <a href="/admin/servicios/{{ svc.id }}" class="fw-semibold text-decoration-none" style="font-size:13.5px; color:var(--c-text);">
-              {{ svc.nombre }}
-            </a>
-          </td>
-          <td>
-            <div style="font-size:11.5px; line-height:1.8;">
-              <span style="color:var(--c-muted);">Empresa: </span>
-              {% if svc.empresa_key %}
-                <code style="background:#f0f9ff; color:#0369a1; padding:1px 5px; border-radius:4px; font-size:11px;">{{ svc.empresa_key }}</code>
-              {% else %}
-                <em style="color:var(--c-muted);">cualquiera</em>
-              {% endif %}
-              <br>
-              <span style="color:var(--c-muted);">Servicio: </span>
-              {% if svc.servicio_key %}
-                <code style="background:#f0fdf4; color:#15803d; padding:1px 5px; border-radius:4px; font-size:11px;">{{ svc.servicio_key }}</code>
-              {% else %}
-                <em style="color:var(--c-muted);">cualquiera</em>
-              {% endif %}
-            </div>
-          </td>
-          <td class="text-center" style="font-size:13px; color:var(--c-muted);">{{ svc.lineas|length }}</td>
-          <td class="text-center">
-            {% if svc.is_active %}
-            <span style="display:inline-block; padding:3px 10px; border-radius:12px; background:#dcfce7; color:#15803d; font-size:11px; font-weight:600;">Activo</span>
+{% if servicios %}
+<div class="d-flex flex-column gap-2">
+  {% for svc in servicios %}
+
+  {# color accent por empresa #}
+  {% if svc.empresa_key and 'parques' in svc.empresa_key|lower %}
+    {% set _accent = '#7c3aed' %}
+    {% set _tag_bg = '#f5f3ff' %}
+    {% set _tag_fg = '#6d28d9' %}
+  {% else %}
+    {% set _accent = '#0e7490' %}
+    {% set _tag_bg = '#ecfeff' %}
+    {% set _tag_fg = '#0e7490' %}
+  {% endif %}
+
+  <div class="card border-0 shadow-sm" style="border-left:4px solid {{ _accent }} !important;">
+    <div class="card-body py-3 px-4">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+
+        {# Orden #}
+        <div class="flex-shrink-0 text-center" style="min-width:36px;">
+          <span class="fw-bold" style="font-size:18px; color:{{ _accent }};">{{ svc.orden }}</span>
+        </div>
+
+        {# Nombre + etiquetas #}
+        <div class="flex-grow-1" style="min-width:0;">
+          <a href="/admin/servicios/{{ svc.id }}"
+             class="fw-semibold text-decoration-none d-block"
+             style="font-size:14px; color:var(--c-text, #111);">
+            {{ svc.nombre }}
+          </a>
+          <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+            {# empresa_key #}
+            {% if svc.empresa_key %}
+            <span class="badge" style="background:{{ _tag_bg }}; color:{{ _tag_fg }}; font-size:11px; font-weight:500; border-radius:4px;">
+              {{ svc.empresa_key }}
+            </span>
             {% else %}
-            <span style="display:inline-block; padding:3px 10px; border-radius:12px; background:#f3f4f6; color:#6b7280; font-size:11px; font-weight:600;">Inactivo</span>
+            <span class="badge" style="background:#f1f5f9; color:#94a3b8; font-size:11px; border-radius:4px; font-style:italic;">
+              cualquier empresa
+            </span>
             {% endif %}
-          </td>
-          <td class="text-end">
-            <a href="/admin/servicios/{{ svc.id }}" class="btn btn-sm btn-outline-secondary me-1">Ver</a>
-            <a href="/admin/servicios/{{ svc.id }}/edit" class="btn btn-sm btn-outline-primary me-1">Editar</a>
-            <form method="post" action="/admin/servicios/{{ svc.id }}/delete"
-                  style="display:inline"
-                  data-confirm="¿Eliminar «{{ svc.nombre }}»? Esta acción no se puede deshacer.">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="6" class="text-center py-5" style="color:var(--c-muted);">
-            No hay servicios configurados.
-            <a href="/admin/servicios/new" class="ms-2">Crear el primero</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+            <span style="color:#cbd5e1;">›</span>
+            {# servicio_key #}
+            {% if svc.servicio_key %}
+            <span class="badge" style="background:#f0fdf4; color:#166534; font-size:11px; font-weight:500; border-radius:4px;">
+              {{ svc.servicio_key }}
+            </span>
+            {% else %}
+            <span class="badge" style="background:#f1f5f9; color:#94a3b8; font-size:11px; border-radius:4px; font-style:italic;">
+              cualquier servicio
+            </span>
+            {% endif %}
+          </div>
+        </div>
+
+        {# Líneas #}
+        <div class="flex-shrink-0 text-center d-none d-sm-block" style="min-width:52px;">
+          <div class="fw-bold" style="font-size:20px; line-height:1; color:var(--c-text, #111);">{{ svc.lineas|length }}</div>
+          <div style="font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:#94a3b8;">líneas</div>
+        </div>
+
+        {# Estado #}
+        <div class="flex-shrink-0">
+          {% if svc.is_active %}
+          <span style="display:inline-block; padding:4px 12px; border-radius:20px; background:#dcfce7; color:#15803d; font-size:11.5px; font-weight:600; white-space:nowrap;">
+            <i class="bi bi-circle-fill me-1" style="font-size:7px; vertical-align:middle;"></i>Activo
+          </span>
+          {% else %}
+          <span style="display:inline-block; padding:4px 12px; border-radius:20px; background:#f3f4f6; color:#6b7280; font-size:11.5px; font-weight:600; white-space:nowrap;">
+            <i class="bi bi-circle me-1" style="font-size:7px; vertical-align:middle;"></i>Inactivo
+          </span>
+          {% endif %}
+        </div>
+
+        {# Acciones #}
+        <div class="flex-shrink-0 d-flex gap-1">
+          <a href="/admin/servicios/{{ svc.id }}"
+             class="btn btn-sm btn-outline-secondary" title="Ver detalle">
+            <i class="bi bi-eye"></i>
+          </a>
+          <a href="/admin/servicios/{{ svc.id }}/edit"
+             class="btn btn-sm btn-outline-primary" title="Editar">
+            <i class="bi bi-pencil"></i>
+          </a>
+          <form method="post" action="/admin/servicios/{{ svc.id }}/delete"
+                style="display:inline"
+                data-confirm="¿Eliminar «{{ svc.nombre }}»? Esta acción no se puede deshacer.">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-list-check" style="font-size:2.5rem; color:#cbd5e1;"></i>
+    <p class="mt-3 mb-1 fw-semibold">No hay plantillas configuradas</p>
+    <p class="text-muted small mb-3">Las plantillas definen el desglose de ítems que aparece en el PDF del certificado.</p>
+    <a href="/admin/servicios/new" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-lg me-1"></i>Crear primera plantilla
+    </a>
   </div>
 </div>
+{% endif %}
 
-<div class="mt-3 p-3" style="background:var(--c-surface-alt, #f8f9fa); border-radius:8px; font-size:12.5px; color:var(--c-muted); line-height:1.7;">
-  <strong style="color:var(--c-text);">Cómo funciona el matching:</strong>
-  Los servicios se evalúan en orden ascendente. Se usa la primera plantilla donde la clave de empresa aparece dentro del nombre de empresa de la solicitud
-  <strong>y</strong> la clave de servicio aparece dentro del nombre del servicio. Claves vacías (<em>cualquiera</em>) coinciden con cualquier valor.
+<div class="mt-3 p-3 rounded-3" style="background:var(--c-surface-alt, #f8f9fa); font-size:12px; color:var(--c-muted);">
+  <i class="bi bi-info-circle me-1"></i>
+  Las plantillas se evalúan en <strong>orden ascendente</strong>. Se usa la primera cuya clave de empresa esté contenida en el nombre de empresa de la solicitud
+  <strong>y</strong> cuya clave de servicio esté contenida en el nombre del servicio. Claves vacías (<em>cualquier empresa / cualquier servicio</em>) coinciden con cualquier valor.
 </div>
 
-<script src="/static/js/confirm-actions.js"></script>
 {% endblock %}
