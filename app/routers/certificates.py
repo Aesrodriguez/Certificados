@@ -18,7 +18,7 @@ from app.models.certificate_request import StatusEnum
 from app.models.session import Session as DbSession
 from app.models.user import RoleEnum
 from app.schemas.certificate_request import CertificateRequestIn
-from app.services import certificate_service, pdf_service, servicio_service
+from app.services import appsetting_service, certificate_service, pdf_service, servicio_service
 from app.services.audit_service import log_action
 from app.services.pdf_service import _numero_a_palabras, _MESES, encrypt_pdf
 
@@ -104,12 +104,15 @@ async def list_certificates(
 @router.get("/new", dependencies=[Depends(require_role(RoleEnum.ASESOR, RoleEnum.ADMIN))])
 async def new_certificate_form(
     request: Request,
+    db: AsyncSession = Depends(get_db),
     session: DbSession = Depends(get_current_session),
 ):
+    required_fields = await appsetting_service.get_required_fields(db)
     return templates.TemplateResponse(
         request,
         "certificates/form.html",
-        _ctx(session, cert=None, cert_servicios=[], field_errors={}, form_action="/certificates"),
+        _ctx(session, cert=None, cert_servicios=[], field_errors={},
+             required_fields=required_fields, form_action="/certificates"),
     )
 
 
@@ -122,9 +125,16 @@ async def create_certificate(
     form = await request.form()
     form_dict = dict(form)
     form_dict["servicios_json"] = _parse_servicios(form)
+
+    required_fields = await appsetting_service.get_required_fields(db)
+    all_errors: dict[str, str] = _check_required(form_dict, required_fields)
+    data = None
     try:
         data = CertificateRequestIn.model_validate(form_dict)
     except pydantic.ValidationError as exc:
+        all_errors.update(_field_errors(exc))
+
+    if all_errors or data is None:
         return templates.TemplateResponse(
             request,
             "certificates/form.html",
@@ -132,7 +142,8 @@ async def create_certificate(
                 session,
                 cert=form_dict,
                 cert_servicios=form_dict.get("servicios_json") or [],
-                field_errors=_field_errors(exc),
+                field_errors=all_errors,
+                required_fields=required_fields,
                 form_action="/certificates",
             ),
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -242,10 +253,12 @@ async def edit_certificate_form(
     except certificate_service.CertificateServiceError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
+    required_fields = await appsetting_service.get_required_fields(db)
     return templates.TemplateResponse(
         request,
         "certificates/form.html",
-        _ctx(session, cert=cert, cert_servicios=cert.servicios_json or [], field_errors={}, form_action=f"/certificates/{cert.id}"),
+        _ctx(session, cert=cert, cert_servicios=cert.servicios_json or [], field_errors={},
+             required_fields=required_fields, form_action=f"/certificates/{cert.id}"),
     )
 
 
@@ -265,9 +278,16 @@ async def update_certificate(
     form = await request.form()
     form_dict = dict(form)
     form_dict["servicios_json"] = _parse_servicios(form)
+
+    required_fields = await appsetting_service.get_required_fields(db)
+    all_errors: dict[str, str] = _check_required(form_dict, required_fields)
+    data = None
     try:
         data = CertificateRequestIn.model_validate(form_dict)
     except pydantic.ValidationError as exc:
+        all_errors.update(_field_errors(exc))
+
+    if all_errors or data is None:
         return templates.TemplateResponse(
             request,
             "certificates/form.html",
@@ -275,7 +295,8 @@ async def update_certificate(
                 session,
                 cert=form_dict,
                 cert_servicios=form_dict.get("servicios_json") or [],
-                field_errors=_field_errors(exc),
+                field_errors=all_errors,
+                required_fields=required_fields,
                 form_action=f"/certificates/{cert_id}",
             ),
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -565,6 +586,15 @@ def _pdf_filename(cert) -> str:
     name = _UNSAFE_CHARS.sub('', name)
     name = ' '.join(name.split())
     return f"{name}(QEPD).pdf"
+
+
+def _check_required(form_dict: dict, required_fields: set[str]) -> dict[str, str]:
+    errors: dict[str, str] = {}
+    for fname in required_fields:
+        val = form_dict.get(fname, "")
+        if not val or (isinstance(val, str) and not val.strip()):
+            errors[fname] = ""
+    return errors
 
 
 def _field_errors(exc: pydantic.ValidationError) -> dict[str, str]:

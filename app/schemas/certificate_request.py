@@ -47,11 +47,11 @@ class CertificateRequestIn(BaseModel):
     cliente_nombre_completo: str = Field(min_length=1, max_length=255)
     cliente_tipo_documento: TipoDocumento
     cliente_numero_documento: str = Field(min_length=1, max_length=30)
-    cliente_telefono: str = Field(min_length=1, max_length=30)
-    cliente_email: EmailStr
+    cliente_telefono: str | None = Field(default=None, max_length=30)
+    cliente_email: EmailStr | None = None
     cliente_direccion: str | None = Field(default=None, max_length=255)
     cliente_ciudad: str | None = Field(default=None, max_length=100)
-    cliente_parentesco: str = Field(min_length=1, max_length=100)
+    cliente_parentesco: str | None = Field(default=None, max_length=100)
 
     # Fallecido
     fallecido_nombre_completo: str = Field(min_length=1, max_length=255)
@@ -79,6 +79,13 @@ class CertificateRequestIn(BaseModel):
     plan_o_poliza: str | None = Field(default=None, max_length=100)
     observaciones: str | None = None
     servicios_json: list | None = None
+
+    @field_validator("cliente_email", "cliente_telefono", "cliente_parentesco", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        return v
 
     @field_validator("fallecido_fecha_nacimiento", mode="before")
     @classmethod

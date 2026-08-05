@@ -41,6 +41,44 @@
         </div>
     </div>
 
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Campos obligatorios del formulario</div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Activa los campos que el asesor <strong>debe</strong> completar al crear o editar una solicitud.
+                Los campos clave (nombre, cédula de solicitante y fallecido; fecha de fallecimiento) son siempre obligatorios.
+            </p>
+
+            <h6 class="mb-2 text-secondary">Datos del solicitante</h6>
+            <div class="row g-2 mb-4">
+                {% for fname, flabel, section in configurable_fields %}{% if section == 'solicitante' %}
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="req_field" value="{{ fname }}" id="req_{{ fname }}"
+                               {% if fname in required_fields %}checked{% endif %}>
+                        <label class="form-check-label" for="req_{{ fname }}">{{ flabel }}</label>
+                    </div>
+                </div>
+                {% endif %}{% endfor %}
+            </div>
+
+            <h6 class="mb-2 text-secondary">Datos del fallecido</h6>
+            <div class="row g-2">
+                {% for fname, flabel, section in configurable_fields %}{% if section == 'fallecido' %}
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="req_field" value="{{ fname }}" id="req_{{ fname }}"
+                               {% if fname in required_fields %}checked{% endif %}>
+                        <label class="form-check-label" for="req_{{ fname }}">{{ flabel }}</label>
+                    </div>
+                </div>
+                {% endif %}{% endfor %}
+            </div>
+        </div>
+    </div>
+
     <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary">Guardar cambios</button>
     </div>

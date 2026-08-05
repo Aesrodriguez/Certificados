@@ -11,6 +11,13 @@
   {%- endif -%}
 {% endmacro %}
 
+{# required_fields viene del contexto del router; si no existe, ningún campo configurable es obligatorio #}
+{% set required_fields = required_fields if required_fields is defined else [] %}
+
+{# Macro: asterisco y atributo required para campos configurables #}
+{% macro req_star(field) %}{% if field in required_fields %} <span class="text-danger">*</span>{% endif %}{% endmacro %}
+{% macro req_attr(field) %}{% if field in required_fields %}required{% endif %}{% endmacro %}
+
 {% set today = now().strftime('%Y-%m-%d') %}
 {% set fe = field_errors if field_errors is defined else {} %}
 
@@ -84,34 +91,35 @@
                     <div class="invalid-feedback">{{ fe.get('cliente_numero_documento') or 'El número de documento del solicitante es obligatorio.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                    <label class="form-label">Teléfono{{ req_star('cliente_telefono') }}</label>
                     <input class="form-control solo-nums{% if 'cliente_telefono' in fe %} is-invalid{% endif %}" name="cliente_telefono"
                            inputmode="numeric"
-                           value="{{ val('cliente_telefono') }}" required
-                           data-msg="El teléfono es obligatorio.">
+                           value="{{ val('cliente_telefono') }}" {{ req_attr('cliente_telefono') }}>
                     <div class="invalid-feedback">{{ fe.get('cliente_telefono') or 'El teléfono es obligatorio.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                    <label class="form-label">Correo electrónico{{ req_star('cliente_email') }}</label>
                     <input class="form-control{% if 'cliente_email' in fe %} is-invalid{% endif %}" type="email" name="cliente_email"
-                           value="{{ val('cliente_email') }}" required
-                           data-msg="Ingresa un correo electrónico válido.">
+                           value="{{ val('cliente_email') }}" {{ req_attr('cliente_email') }}>
                     <div class="invalid-feedback">{{ fe.get('cliente_email') or 'Ingresa un correo electrónico válido.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Parentesco con el fallecido <span class="text-danger">*</span></label>
+                    <label class="form-label">Parentesco con el fallecido{{ req_star('cliente_parentesco') }}</label>
                     <input class="form-control{% if 'cliente_parentesco' in fe %} is-invalid{% endif %}" name="cliente_parentesco"
-                           value="{{ val('cliente_parentesco') }}" required
-                           data-msg="El parentesco es obligatorio.">
+                           value="{{ val('cliente_parentesco') }}" {{ req_attr('cliente_parentesco') }}>
                     <div class="invalid-feedback">{{ fe.get('cliente_parentesco') or 'El parentesco es obligatorio.' }}</div>
                 </div>
                 <div class="col-md-6 mb-2">
-                    <label class="form-label">Dirección</label>
-                    <input class="form-control" name="cliente_direccion" value="{{ val('cliente_direccion') }}">
+                    <label class="form-label">Dirección{{ req_star('cliente_direccion') }}</label>
+                    <input class="form-control{% if 'cliente_direccion' in fe %} is-invalid{% endif %}" name="cliente_direccion"
+                           value="{{ val('cliente_direccion') }}" {{ req_attr('cliente_direccion') }}>
+                    <div class="invalid-feedback">{{ fe.get('cliente_direccion') or 'La dirección es obligatoria.' }}</div>
                 </div>
                 <div class="col-md-6 mb-2">
-                    <label class="form-label">Ciudad</label>
-                    <input class="form-control" name="cliente_ciudad" value="{{ val('cliente_ciudad') }}">
+                    <label class="form-label">Ciudad{{ req_star('cliente_ciudad') }}</label>
+                    <input class="form-control{% if 'cliente_ciudad' in fe %} is-invalid{% endif %}" name="cliente_ciudad"
+                           value="{{ val('cliente_ciudad') }}" {{ req_attr('cliente_ciudad') }}>
+                    <div class="invalid-feedback">{{ fe.get('cliente_ciudad') or 'La ciudad es obligatoria.' }}</div>
                 </div>
             </div>
         </div>
@@ -146,12 +154,12 @@
                     <div class="invalid-feedback">{{ fe.get('fallecido_numero_documento') or 'El número de documento del fallecido es obligatorio.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Fecha de nacimiento</label>
+                    <label class="form-label">Fecha de nacimiento{{ req_star('fallecido_fecha_nacimiento') }}</label>
                     <input class="form-control{% if 'fallecido_fecha_nacimiento' in fe %} is-invalid{% endif %}" type="date" name="fallecido_fecha_nacimiento"
                            id="fechaNacimiento"
                            max="{{ today }}"
-                           value="{{ val('fallecido_fecha_nacimiento') }}">
-                    <div class="invalid-feedback" id="errNacimiento">{{ fe.get('fallecido_fecha_nacimiento') or 'La fecha de nacimiento no puede ser futura.' }}</div>
+                           value="{{ val('fallecido_fecha_nacimiento') }}" {{ req_attr('fallecido_fecha_nacimiento') }}>
+                    <div class="invalid-feedback" id="errNacimiento">{{ fe.get('fallecido_fecha_nacimiento') or 'Este campo es obligatorio.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Fecha de fallecimiento <span class="text-danger">*</span></label>
@@ -163,9 +171,10 @@
                     <div class="invalid-feedback" id="errFallecimiento">{{ fe.get('fallecido_fecha_fallecimiento') or 'La fecha de fallecimiento es obligatoria y no puede ser futura.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Lugar de fallecimiento</label>
-                    <input class="form-control" name="fallecido_lugar_fallecimiento"
-                           value="{{ val('fallecido_lugar_fallecimiento') }}">
+                    <label class="form-label">Lugar de fallecimiento{{ req_star('fallecido_lugar_fallecimiento') }}</label>
+                    <input class="form-control{% if 'fallecido_lugar_fallecimiento' in fe %} is-invalid{% endif %}" name="fallecido_lugar_fallecimiento"
+                           value="{{ val('fallecido_lugar_fallecimiento') }}" {{ req_attr('fallecido_lugar_fallecimiento') }}>
+                    <div class="invalid-feedback">{{ fe.get('fallecido_lugar_fallecimiento') or 'Este campo es obligatorio.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Fecha de afiliación</label>
@@ -173,14 +182,16 @@
                            value="{{ val('fecha_afiliacion') }}">
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Causa de fallecimiento</label>
-                    <input class="form-control" name="fallecido_causa_fallecimiento"
-                           value="{{ val('fallecido_causa_fallecimiento') }}">
+                    <label class="form-label">Causa de fallecimiento{{ req_star('fallecido_causa_fallecimiento') }}</label>
+                    <input class="form-control{% if 'fallecido_causa_fallecimiento' in fe %} is-invalid{% endif %}" name="fallecido_causa_fallecimiento"
+                           value="{{ val('fallecido_causa_fallecimiento') }}" {{ req_attr('fallecido_causa_fallecimiento') }}>
+                    <div class="invalid-feedback">{{ fe.get('fallecido_causa_fallecimiento') or 'Este campo es obligatorio.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">N.º acta de defunción</label>
-                    <input class="form-control" name="fallecido_numero_acta_defuncion"
-                           value="{{ val('fallecido_numero_acta_defuncion') }}">
+                    <label class="form-label">N.º acta de defunción{{ req_star('fallecido_numero_acta_defuncion') }}</label>
+                    <input class="form-control{% if 'fallecido_numero_acta_defuncion' in fe %} is-invalid{% endif %}" name="fallecido_numero_acta_defuncion"
+                           value="{{ val('fallecido_numero_acta_defuncion') }}" {{ req_attr('fallecido_numero_acta_defuncion') }}>
+                    <div class="invalid-feedback">{{ fe.get('fallecido_numero_acta_defuncion') or 'Este campo es obligatorio.' }}</div>
                 </div>
             </div>
         </div>

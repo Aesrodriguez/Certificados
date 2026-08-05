@@ -231,9 +231,16 @@ async def configuracion_page(
     msg: str | None = Query(None),
 ):
     email_enabled = await appsetting_service.get_setting(db, "email_enabled", default="false")
+    required_fields = await appsetting_service.get_required_fields(db)
     return templates.TemplateResponse(
         request, "admin/configuracion.html",
-        _ctx(session, email_enabled=(email_enabled == "true"), msg=msg),
+        _ctx(
+            session,
+            email_enabled=(email_enabled == "true"),
+            required_fields=required_fields,
+            configurable_fields=appsetting_service.CONFIGURABLE_FIELDS,
+            msg=msg,
+        ),
     )
 
 
@@ -246,4 +253,6 @@ async def configuracion_save(
     form = await request.form()
     email_enabled = "true" if form.get("email_enabled") == "1" else "false"
     await appsetting_service.set_setting(db, "email_enabled", email_enabled)
+    req_fields = list(form.getlist("req_field"))
+    await appsetting_service.set_required_fields(db, req_fields)
     return RedirectResponse(url="/admin/configuracion?msg=Configuración+guardada.", status_code=303)
