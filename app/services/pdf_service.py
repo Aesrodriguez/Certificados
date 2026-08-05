@@ -132,24 +132,28 @@ _REC_STD = [  # RECORDAR — Servicio Funerario estándar
     ("Traslado del cuerpo dentro del perímetro urbano", 0.04),
     ("Preparación normal del cuerpo", 0.09),
     ("Suministro del féretro según la Alternativa seleccionada", 0.41),
-    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.03),
+    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo", 0.00),
+    ("(Carroza Funebre)", 0.03),
     ("Celebración religiosa (si el cliente lo desea)-(Tramites eclesiasticos)", 0.02),
     ("Cafeteria (Bebidas calientes en sala)", 0.05),
     ("Carteles Virtuales", 0.01),
-    ("Trámites civiles y legales ante autoridad competente (Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
+    ("Trámites ante autoridades competentes", 0.00),
+    ("(Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
     ("Velación por 24 horas", 0.31),
 ]
 
 _REC_TRANSP = [  # RECORDAR — Solo transporte, velación y restos
     ("Traslado terrestre de la persona fallecida al parque cementerio Jardines de Eternidad sede norte", 0.30),
-    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.22),
+    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo", 0.00),
+    ("(Carroza Funebre)", 0.22),
     ("Cafeteria (Bebidas calientes en sala)", 0.05),
     ("Carteles Virtuales", 0.01),
     ("Velación por 24 horas", 0.42),
 ]
 
 _REC_TRANSP_MISA = [  # RECORDAR — Solo transporte, velación, misa y restos
-    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.50),
+    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo", 0.00),
+    ("(Carroza Funebre)", 0.50),
     ("Celebración religiosa (si el cliente lo desea)-(Tramites eclesiasticos)", 0.04),
     ("Cafeteria (Bebidas calientes en sala)", 0.05),
     ("Carteles Virtuales", 0.01),
@@ -162,25 +166,31 @@ def _pyf_std(cofre_nombre: str) -> list:
         ("Recogida del cuerpo dentro del perímetro urbano", 0.04),
         ("Preparación normal del cuerpo", 0.09),
         (cofre_nombre, 0.41),
-        ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.03),
+        ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo", 0.00),
+        ("(Carroza Funebre)", 0.03),
         ("Celebración religiosa (si el cliente lo desea)-(Tramites eclesiasticos)", 0.02),
         ("Cafeteria (Bebidas calientes en sala)", 0.05),
         ("Carteles Virtuales", 0.01),
-        ("Trámites civiles y legales ante autoridad competente (Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
+        ("Trámites ante autoridades competentes", 0.00),
+        ("(Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
         ("Velación normal (24 horas)", 0.31),
+        ("Asesoria las 24 horas", 0.00),
     ]
 
 _PYF_CREMACION = [  # PYF — Cremación integrada
     ("Recogida del cuerpo dentro del perímetro urbano", 0.04),
     ("Preparación normal del cuerpo", 0.09),
-    ('Cofre funebre "L" o el equivalente a talla y peso del fallecido', 0.41),
-    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo (Carroza Funebre)", 0.03),
+    ('Cofre funebre "L" o el equivalente a talla y peso de fallecido', 0.41),
+    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo", 0.00),
+    ("(Carroza Funebre)", 0.03),
     ("Celebración religiosa (si el cliente lo desea)-(Tramites eclesiasticos)", 0.02),
     ("Cafeteria (Bebidas calientes en sala)", 0.05),
     ("Carteles Virtuales", 0.01),
-    ("Trámites civiles y legales ante autoridad competente (Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
+    ("Trámites ante autoridades competentes", 0.00),
+    ("(Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
     ("Velación normal (24 horas)", 0.21),
     ("Reducción del cuerpo a Cenizas por medio del calor", 0.10),
+    ("Asesoria las 24 horas", 0.00),
 ]
 
 # Tabla de búsqueda: (fragmento_empresa, fragmento_servicio) → desglose
@@ -192,10 +202,10 @@ _BREAKDOWN_TABLE: list[tuple[str, str, list]] = [
     ("recordar", "",                          _REC_STD),   # catch-all RECORDAR
     # PARQUES Y FUNERARIAS
     ("parques",  "cremacion",    _PYF_CREMACION),
-    ("parques",  "gran extra",   _pyf_std('Cofre funebre "Gran Extra" o el equivalente a talla y peso del fallecido')),
-    ("parques",  "estilo j",     _pyf_std('Cofre funebre "J" o el equivalente a talla y peso del fallecido')),
-    ("parques",  "estilo k",     _pyf_std('Cofre funebre "K" o el equivalente a talla y peso del fallecido')),
-    ("parques",  "estilo l",     _pyf_std('Cofre funebre "L" o el equivalente a talla y peso del fallecido')),
+    ("parques",  "gran extra",   _pyf_std('Cofre funebre "Gran Extra" o el equivalente a talla y peso de fallecido')),
+    ("parques",  "estilo j",     _pyf_std('Cofre funebre "J" o el equivalente a talla y peso de fallecido')),
+    ("parques",  "estilo k",     _pyf_std('Cofre funebre "K" o el equivalente a talla y peso de fallecido')),
+    ("parques",  "estilo l",     _pyf_std('Cofre funebre "L" o el equivalente a talla y peso de fallecido')),
     ("parques",  "",             _pyf_std('Cofre funebre según la Alternativa seleccionada')),  # catch-all PYF
 ]
 
@@ -382,16 +392,17 @@ def build_certificate_pdf(
             )
             for nombre, valor in lineas:
                 dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(nombre)))
+                val_str = "$ -" if valor == 0 else f"$ {_formato_cop(valor)}"
                 row = Table(
-                    [[Paragraph(f"{nombre.upper()}{dots}", _body),
-                      Paragraph(f"$ {_formato_cop(valor)}", _svc_r)]],
+                    [[Paragraph(f"{nombre}{dots}", _body),
+                      Paragraph(val_str, _svc_r)]],
                     colWidths=[svc_col, val_col],
                 )
                 row.setStyle(row_style)
                 story.append(row)
         else:
             # Tabla simple cuando no hay valor total
-            svc_name = (cert.nombre_servicio or "").upper()
+            svc_name = cert.nombre_servicio or ""
             dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(svc_name)))
             row = Table(
                 [[Paragraph(f"{svc_name}{dots}", _body), Paragraph("-", _svc_r)]],

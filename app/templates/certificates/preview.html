@@ -292,8 +292,8 @@
                 {% endif %}
                 {% for nombre, valor in lineas_servicio %}
                 <tr>
-                    <td>{{ nombre | upper }}{{ "." * [1, 85 - nombre|length]|max }}</td>
-                    <td class="val-col">$ {{ "{:,}".format(valor).replace(",", ".") }}</td>
+                    <td>{{ nombre }}{{ "." * [1, 85 - nombre|length]|max }}</td>
+                    <td class="val-col">{% if valor %}$ {{ "{:,}".format(valor).replace(",", ".") }}{% else %}$ -{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -314,9 +314,9 @@
             </thead>
             <tbody>
                 <tr>
-                    <td>{% if cert.nombre_servicio %}{{ cert.nombre_servicio | upper }}{{ "." * [1, 65 - cert.nombre_servicio|length]|max }}{% endif %}</td>
+                    <td>{% if cert.nombre_servicio %}{{ cert.nombre_servicio }}{{ "." * [1, 65 - cert.nombre_servicio|length]|max }}{% endif %}</td>
                     <td class="val-col">
-                        {% if cert.valor_total %}$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}{% else %}-{% endif %}
+                        {% if cert.valor_total %}$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}{% else %}$ -{% endif %}
                     </td>
                 </tr>
             </tbody>
