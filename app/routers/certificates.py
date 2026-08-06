@@ -32,12 +32,12 @@ def _parse_servicios(form) -> list | None:
     nombres = form.getlist("svc_nombre")
     valores = form.getlist("svc_valor")
     lineas = []
-    for nom, val_str in zip(nombres, valores):
-        nom = nom.strip()
+    for nom, val_str in zip(nombres[:50], valores[:50]):  # hard cap: 50 items
+        nom = nom.strip()[:300]
         if not nom:
             continue
         try:
-            val = int(val_str or 0)
+            val = max(0, min(int(val_str or 0), 100_000_000))
         except (ValueError, TypeError):
             val = 0
         lineas.append({"nombre": nom, "valor": val})
@@ -314,7 +314,7 @@ async def update_certificate(
 
 @router.post(
     "/{cert_id}/delete",
-    dependencies=[Depends(verify_csrf)],
+    dependencies=[Depends(require_role(RoleEnum.ADMIN, RoleEnum.ASESOR)), Depends(verify_csrf)],
 )
 async def delete_certificate(
     cert_id: uuid.UUID,
@@ -409,7 +409,7 @@ async def approve_certificate(
 async def reject_certificate(
     cert_id: uuid.UUID,
     request: Request,
-    rejection_comment: str = Form(...),
+    rejection_comment: str = Form(..., max_length=2000),
     db: AsyncSession = Depends(get_db),
     session: DbSession = Depends(get_current_session),
 ):

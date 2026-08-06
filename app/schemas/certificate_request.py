@@ -3,6 +3,11 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+
+class ServicioLineaIn(BaseModel):
+    nombre: str = Field(min_length=1, max_length=300)
+    valor: int = Field(ge=0, le=100_000_000)
+
 TipoDocumento = Literal["CC", "CE", "TI", "PAS", "RC"]
 
 TIPOS_CERTIFICADO = [
@@ -66,7 +71,7 @@ class CertificateRequestIn(BaseModel):
     # Servicios utilizados
     nombre_servicio: str | None = Field(default=None, max_length=255)
     descripcion_servicio: str | None = Field(default=None, max_length=255)
-    valor_total: int | None = None
+    valor_total: int | None = Field(default=None, ge=0, le=2_000_000_000)
 
     # Datos administrativos
     numero_aviso: str | None = Field(default=None, max_length=50)
@@ -77,8 +82,8 @@ class CertificateRequestIn(BaseModel):
 
     # Metadatos
     plan_o_poliza: str | None = Field(default=None, max_length=100)
-    observaciones: str | None = None
-    servicios_json: list | None = None
+    observaciones: str | None = Field(default=None, max_length=2000)
+    servicios_json: list[ServicioLineaIn] | None = Field(default=None, max_length=50)
 
     @field_validator("cliente_email", "cliente_telefono", "cliente_parentesco", mode="before")
     @classmethod

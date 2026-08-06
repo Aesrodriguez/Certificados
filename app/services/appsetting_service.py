@@ -44,7 +44,10 @@ async def get_required_fields(db: AsyncSession) -> set[str]:
     if not raw:
         return set(_DEFAULT_REQUIRED)
     try:
-        return set(json.loads(raw))
+        parsed = json.loads(raw)
+        if not isinstance(parsed, list):
+            return set(_DEFAULT_REQUIRED)
+        return set(parsed)
     except (json.JSONDecodeError, TypeError):
         return set(_DEFAULT_REQUIRED)
 

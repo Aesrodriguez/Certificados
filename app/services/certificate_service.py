@@ -37,6 +37,7 @@ async def list_for_user(
     page: int = 1,
     per_page: int = 25,
 ) -> tuple[list[CertificateRequest], int]:
+    per_page = min(per_page, 200)
     query = _base_query(user)
     if status_filter:
         try:
@@ -44,12 +45,13 @@ async def list_for_user(
         except KeyError:
             pass
     if search:
-        pattern = f"%{search}%"
+        safe = search[:100].replace("%", r"\%").replace("_", r"\_")
+        pattern = f"%{safe}%"
         query = query.where(or_(
-            CertificateRequest.fallecido_nombre_completo.ilike(pattern),
-            CertificateRequest.cliente_nombre_completo.ilike(pattern),
-            CertificateRequest.fallecido_numero_documento.ilike(pattern),
-            CertificateRequest.cliente_numero_documento.ilike(pattern),
+            CertificateRequest.fallecido_nombre_completo.ilike(pattern, escape="\\"),
+            CertificateRequest.cliente_nombre_completo.ilike(pattern, escape="\\"),
+            CertificateRequest.fallecido_numero_documento.ilike(pattern, escape="\\"),
+            CertificateRequest.cliente_numero_documento.ilike(pattern, escape="\\"),
         ))
 
     count_result = await db.execute(select(func.count()).select_from(query.subquery()))
@@ -151,6 +153,8 @@ def assert_can_review(cert: CertificateRequest, revisor: User) -> None:
         raise CertificateServiceError("Solo un Revisor o Administrador puede aprobar o rechazar solicitudes.")
     if cert.status != StatusEnum.PENDING:
         raise CertificateServiceError("Esta solicitud no está pendiente de revisión.")
+    if cert.asesor_id == revisor.id:
+        raise CertificateServiceError("No puedes aprobar o rechazar tu propia solicitud.")
 
 
 async def approve(
@@ -224,7 +228,7 @@ async def send_certificate_email(
             entity_type="certificate_request",
             entity_id=cert.id,
             ip_address=ip_address,
-            metadata={"error": str(exc)},
+            metadata={"error": type(exc).__name__},
         )
         await db.commit()
         return False

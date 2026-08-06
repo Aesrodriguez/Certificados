@@ -110,7 +110,12 @@ async def get_lineas_for_cert(
     without any template lookup.
     """
     if servicios_json:
-        return [(item["nombre"], item["valor"]) for item in servicios_json]
+        result_lines = []
+        for item in servicios_json:
+            if isinstance(item, dict) and "nombre" in item and "valor" in item:
+                result_lines.append((str(item["nombre"]), int(item["valor"])))
+        if result_lines:
+            return result_lines
     try:
         result = await db.execute(
             select(Servicio)

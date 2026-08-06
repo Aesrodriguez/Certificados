@@ -103,6 +103,7 @@ async def reset_password_form(request: Request, token: str = ""):
 
 
 @router.post("/reset-password")
+@limiter.limit("5/minute")
 async def reset_password_submit(
     request: Request,
     token: str = Form(...),
@@ -118,11 +119,11 @@ async def reset_password_submit(
             {"token": token, "error": "Las contraseñas no coinciden."},
             status_code=status.HTTP_400_BAD_REQUEST,
         )
-    if len(password) < 8:
+    if len(password) < 10:
         return templates.TemplateResponse(
             request,
             "auth/reset_password.html",
-            {"token": token, "error": "La contraseña debe tener al menos 8 caracteres."},
+            {"token": token, "error": "La contraseña debe tener al menos 10 caracteres."},
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 

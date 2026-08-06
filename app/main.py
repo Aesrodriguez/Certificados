@@ -54,38 +54,3 @@ async def healthz():
     return {"status": "ok"}
 
 
-@app.get("/debug/gmail")
-async def debug_gmail():
-    """Temporary: tests Gmail API OAuth2 config. Remove after email is confirmed working."""
-    import httpx as _httpx
-
-    result = {
-        "gmail_sender": settings.GMAIL_SENDER or "(not set)",
-        "client_id_set": bool(settings.GMAIL_CLIENT_ID),
-        "client_secret_set": bool(settings.GMAIL_CLIENT_SECRET),
-        "refresh_token_set": bool(settings.GMAIL_REFRESH_TOKEN),
-    }
-
-    if not settings.gmail_configured:
-        result["status"] = "ERROR: faltan variables GMAIL_* en Render"
-        return result
-
-    try:
-        resp = _httpx.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "client_id": settings.GMAIL_CLIENT_ID,
-                "client_secret": settings.GMAIL_CLIENT_SECRET,
-                "refresh_token": settings.GMAIL_REFRESH_TOKEN,
-                "grant_type": "refresh_token",
-            },
-            timeout=10,
-        )
-        if resp.status_code == 200 and resp.json().get("access_token"):
-            result["status"] = "OK - token de acceso obtenido correctamente"
-        else:
-            result["status"] = f"ERROR ({resp.status_code}): {resp.text}"
-    except Exception as e:
-        result["status"] = f"ERROR: {type(e).__name__}: {e}"
-
-    return result

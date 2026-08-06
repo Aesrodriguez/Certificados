@@ -4,8 +4,8 @@ from starlette.responses import Response
 
 CSP = (
     "default-src 'self'; "
-    "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
-    "script-src 'self' cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline'; "
+    "script-src 'self'; "
     "img-src 'self' data:; "
     "frame-ancestors 'none'; "
     "base-uri 'self'; "
@@ -17,9 +17,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         response = await call_next(request)
 
-        # Cache static assets for 24 h — browser won't re-request on every navigation
         if request.url.path.startswith("/static/"):
             response.headers["Cache-Control"] = "public, max-age=86400"
+            response.headers["X-Content-Type-Options"] = "nosniff"
             return response
 
         response.headers["Content-Security-Policy"] = CSP
