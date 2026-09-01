@@ -58,6 +58,15 @@
                     <label class="form-label">N.º certificado</label>
                     <input class="form-control" name="numero_certificado" value="{{ val('numero_certificado') }}">
                 </div>
+                <div class="col-md-4 mb-2">
+                    <label class="form-label">Fecha de solicitud del documento <span class="text-danger">*</span></label>
+                    <input class="form-control" type="date" name="fecha_solicitud_documento"
+                           id="fechaSolicitud"
+                           max="{{ today }}"
+                           value="{{ val('fecha_solicitud_documento') }}" required
+                           data-msg="La fecha de solicitud es obligatoria.">
+                    <div class="invalid-feedback">La fecha de solicitud es obligatoria.</div>
+                </div>
             </div>
         </div>
     </div>
@@ -208,7 +217,7 @@
         <div class="card-body">
             <div class="row mb-3">
                 <div class="col-md-7 mb-2">
-                    <label class="form-label">Tipo de servicio <span class="text-muted">(plantilla automática)</span></label>
+                    <label class="form-label">Tipo de servicio</label>
                     <select class="form-select" name="nombre_servicio" id="selectServicio">
                         <option value="">-- Seleccionar --</option>
                         <optgroup label="RECORDAR" class="opts-recordar">
@@ -222,7 +231,19 @@
                             {% endfor %}
                         </optgroup>
                     </select>
-                    <div class="form-text">Solo aplica si no se agregan ítems manuales abajo.</div>
+                </div>
+                <div class="col-md-5 mb-2 d-flex align-items-end gap-2">
+                    <button type="button" class="btn btn-outline-secondary" id="btnCargarPlantilla" disabled>
+                        <i class="bi bi-cloud-download me-1"></i>Cargar ítems de plantilla
+                    </button>
+                    <span id="msgPlantilla" class="form-text"></span>
+                </div>
+                <div class="col-12">
+                    <div class="form-text text-muted">
+                        Selecciona empresa + tipo de servicio e ingresa el valor total, luego haz clic en
+                        <strong>Cargar ítems de plantilla</strong> para auto-completar el desglose.
+                        También puedes agregar ítems manualmente con el botón de arriba.
+                    </div>
                 </div>
             </div>
 

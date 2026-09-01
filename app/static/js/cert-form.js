@@ -20,10 +20,18 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   /* ── Filtrar servicios según empresa seleccionada ── */
-  var grpRecordar = document.querySelector('.opts-recordar');
-  var grpPyf      = document.querySelector('.opts-pyf');
-  var selServicio = document.getElementById('selectServicio');
-  var selEmpresa  = document.getElementById('selectEmpresa');
+  var grpRecordar      = document.querySelector('.opts-recordar');
+  var grpPyf           = document.querySelector('.opts-pyf');
+  var selServicio      = document.getElementById('selectServicio');
+  var selEmpresa       = document.getElementById('selectEmpresa');
+  var btnCargarPlant   = document.getElementById('btnCargarPlantilla');
+  var msgPlantilla     = document.getElementById('msgPlantilla');
+
+  function actualizarBtnPlantilla() {
+    if (!btnCargarPlant) return;
+    var ok = selEmpresa && selEmpresa.value && selServicio && selServicio.value;
+    btnCargarPlant.disabled = !ok;
+  }
 
   if (selEmpresa && selServicio && grpRecordar && grpPyf) {
     function filtrarServicios() {
@@ -39,8 +47,10 @@ document.addEventListener('DOMContentLoaded', function () {
           selServicio.value = '';
         }
       }
+      actualizarBtnPlantilla();
     }
     selEmpresa.addEventListener('change', filtrarServicios);
+    selServicio.addEventListener('change', actualizarBtnPlantilla);
     filtrarServicios();
   }
 
@@ -62,11 +72,13 @@ document.addEventListener('DOMContentLoaded', function () {
     return true;
   }
 
+  var fechaSol  = document.getElementById('fechaSolicitud');
   var fechaNac  = document.getElementById('fechaNacimiento');
   var fechaFall = document.getElementById('fechaFallecimiento');
   var errNac    = document.getElementById('errNacimiento');
   var errFall   = document.getElementById('errFallecimiento');
 
+  if (fechaSol)  fechaSol.addEventListener('change',  function () { validarFecha(fechaSol,  null); });
   if (fechaNac)  fechaNac.addEventListener('change',  function () { validarFecha(fechaNac,  errNac);  });
   if (fechaFall) fechaFall.addEventListener('change', function () { validarFecha(fechaFall, errFall); });
 
@@ -135,6 +147,53 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     recalcTotal();
+  }
+
+  /* ── Cargar ítems desde plantilla (fetch al servidor) ── */
+  if (btnCargarPlant) {
+    btnCargarPlant.addEventListener('click', function () {
+      var empresa       = selEmpresa  ? selEmpresa.value  : '';
+      var servicio      = selServicio ? selServicio.value : '';
+      var vt            = valorTotal  ? parseInt(valorTotal.value || '0', 10) : 0;
+
+      if (!empresa || !servicio) {
+        if (msgPlantilla) msgPlantilla.textContent = 'Selecciona empresa y tipo de servicio primero.';
+        return;
+      }
+      if (!vt) {
+        if (msgPlantilla) msgPlantilla.textContent = 'Ingresa el valor total antes de cargar la plantilla.';
+        return;
+      }
+
+      btnCargarPlant.disabled = true;
+      if (msgPlantilla) msgPlantilla.textContent = 'Cargando…';
+
+      var url = '/certificates/api/lineas'
+        + '?empresa=' + encodeURIComponent(empresa)
+        + '&nombre_servicio=' + encodeURIComponent(servicio)
+        + '&valor_total=' + vt;
+
+      fetch(url, { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (items) {
+          if (!Array.isArray(items) || items.length === 0) {
+            if (msgPlantilla) msgPlantilla.textContent = 'No se encontró plantilla para esta combinación.';
+            btnCargarPlant.disabled = false;
+            return;
+          }
+          // Limpiar ítems existentes
+          if (container) {
+            container.querySelectorAll('.svc-row').forEach(function (r) { r.remove(); });
+          }
+          items.forEach(function (item) { addRow(item.nombre, item.valor); });
+          if (msgPlantilla) msgPlantilla.textContent = items.length + ' ítems cargados.';
+          btnCargarPlant.disabled = false;
+        })
+        .catch(function () {
+          if (msgPlantilla) msgPlantilla.textContent = 'Error al cargar la plantilla. Intenta de nuevo.';
+          btnCargarPlant.disabled = false;
+        });
+    });
   }
 
   /* ── Validación general al enviar ── */

@@ -63,6 +63,8 @@ class CertificateRequest(Base, UUIDPKMixin, TimestampMixin):
     plan_o_poliza: Mapped[str | None] = mapped_column(String(100), nullable=True)
     observaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    fecha_solicitud_documento: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     # Campos del dashboard Asesor (basados en el Excel de solicitudes)
     empresa: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tipo_certificado: Mapped[str | None] = mapped_column(String(100), nullable=True)

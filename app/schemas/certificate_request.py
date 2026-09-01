@@ -73,6 +73,9 @@ class CertificateRequestIn(BaseModel):
     descripcion_servicio: str | None = Field(default=None, max_length=255)
     valor_total: int | None = Field(default=None, ge=0, le=2_000_000_000)
 
+    # Metadatos del certificado
+    fecha_solicitud_documento: date | None = None
+
     # Datos administrativos
     numero_aviso: str | None = Field(default=None, max_length=50)
     fecha_afiliacion: date | None = None
@@ -92,7 +95,7 @@ class CertificateRequestIn(BaseModel):
             return None
         return v
 
-    @field_validator("fallecido_fecha_nacimiento", mode="before")
+    @field_validator("fecha_solicitud_documento", "fallecido_fecha_nacimiento", mode="before")
     @classmethod
     def nacimiento_no_futuro(cls, v):
         if v is None or v == "":

@@ -101,6 +101,22 @@ async def list_certificates(
     )
 
 
+@router.get("/api/lineas")
+async def api_lineas_plantilla(
+    request: Request,
+    empresa: str = Query(""),
+    nombre_servicio: str = Query(""),
+    valor_total: int = Query(0, ge=0, le=2_000_000_000),
+    db: AsyncSession = Depends(get_db),
+    session: DbSession = Depends(get_current_session),
+):
+    from fastapi.responses import JSONResponse
+    lineas = await servicio_service.get_lineas_for_cert(
+        db, empresa or None, nombre_servicio or None, valor_total, servicios_json=None
+    )
+    return JSONResponse([{"nombre": n, "valor": v} for n, v in lineas])
+
+
 @router.get("/new", dependencies=[Depends(require_role(RoleEnum.ASESOR, RoleEnum.ADMIN))])
 async def new_certificate_form(
     request: Request,
