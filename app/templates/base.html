@@ -110,6 +110,11 @@
           <i class="bi bi-gear-fill"></i>
           Configuración
         </a>
+        <a href="/admin/importar"
+           class="sidebar-link {% if request.url.path.startswith('/admin/importar') %}active{% endif %}">
+          <i class="bi bi-file-earmark-arrow-up-fill"></i>
+          Importar Excel
+        </a>
       </div>
       {% endif %}
 
