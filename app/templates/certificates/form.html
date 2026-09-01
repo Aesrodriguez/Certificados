@@ -59,13 +59,11 @@
                     <input class="form-control" name="numero_certificado" value="{{ val('numero_certificado') }}">
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Fecha de solicitud del documento <span class="text-danger">*</span></label>
+                    <label class="form-label">Fecha de solicitud del documento</label>
                     <input class="form-control" type="date" name="fecha_solicitud_documento"
                            id="fechaSolicitud"
                            max="{{ today }}"
-                           value="{{ val('fecha_solicitud_documento') }}" required
-                           data-msg="La fecha de solicitud es obligatoria.">
-                    <div class="invalid-feedback">La fecha de solicitud es obligatoria.</div>
+                           value="{{ val('fecha_solicitud_documento') }}">
                 </div>
             </div>
         </div>
