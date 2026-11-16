@@ -1,5 +1,6 @@
+import html
 import io
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -17,6 +18,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from app.core.catalogo import TIPO_SERVICIOS, es_recordar as _es_recordar, norm, solo_digitos
 from app.models.certificate_request import CertificateRequest
 
 _STATIC = Path(__file__).resolve().parent.parent / "static" / "img"
@@ -142,6 +144,21 @@ _REC_STD = [  # RECORDAR — Servicio Funerario estándar
     ("Velación por 24 horas", 0.31),
 ]
 
+_REC_CREMACION = [  # RECORDAR — Servicio de cremación (base: cremación PYF, editable en Servicios)
+    ("Traslado del cuerpo dentro del perímetro urbano", 0.04),
+    ("Preparación normal del cuerpo", 0.09),
+    ("Suministro del féretro según la Alternativa seleccionada", 0.41),
+    ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo", 0.00),
+    ("(Carroza Funebre)", 0.03),
+    ("Celebración religiosa (si el cliente lo desea)-(Tramites eclesiasticos)", 0.02),
+    ("Cafeteria (Bebidas calientes en sala)", 0.05),
+    ("Carteles Virtuales", 0.01),
+    ("Trámites ante autoridades competentes", 0.00),
+    ("(Licencia de inhumación o cremación- Registro de Defunción)", 0.04),
+    ("Velación por 24 horas", 0.21),
+    ("Reducción del cuerpo a Cenizas por medio del calor", 0.10),
+]
+
 _REC_TRANSP = [  # RECORDAR — Solo transporte, velación y restos
     ("Traslado terrestre de la persona fallecida al parque cementerio Jardines de Eternidad sede norte", 0.30),
     ("Traslado urbano de la persona fallecida a la sala de velación y Campo Santo", 0.00),
@@ -197,6 +214,7 @@ _PYF_CREMACION = [  # PYF — Cremación integrada
 # La empresa y el nombre de servicio se comparan en minúsculas (in).
 _BREAKDOWN_TABLE: list[tuple[str, str, list]] = [
     # RECORDAR
+    ("recordar", "cremacion",                _REC_CREMACION),
     ("recordar", "transporte velacion misa", _REC_TRANSP_MISA),
     ("recordar", "transporte velacion",      _REC_TRANSP),
     ("recordar", "",                          _REC_STD),   # catch-all RECORDAR
@@ -206,6 +224,10 @@ _BREAKDOWN_TABLE: list[tuple[str, str, list]] = [
     ("parques",  "estilo j",     _pyf_std('Cofre funebre "J" o el equivalente a talla y peso de fallecido')),
     ("parques",  "estilo k",     _pyf_std('Cofre funebre "K" o el equivalente a talla y peso de fallecido')),
     ("parques",  "estilo l",     _pyf_std('Cofre funebre "L" o el equivalente a talla y peso de fallecido')),
+    ("parques",  "estilo clasico",    _pyf_std('Cofre funebre "Clásico" o el equivalente a talla y peso de fallecido')),
+    ("parques",  "estilo superior",   _pyf_std('Cofre funebre "Superior" o el equivalente a talla y peso de fallecido')),
+    ("parques",  "estilo excelencia", _pyf_std('Cofre funebre "Excelencia" o el equivalente a talla y peso de fallecido')),
+    ("parques",  "estilo extra",      _pyf_std('Cofre funebre "Extra" o el equivalente a talla y peso de fallecido')),
     ("parques",  "",             _pyf_std('Cofre funebre según la Alternativa seleccionada')),  # catch-all PYF
 ]
 
@@ -222,8 +244,8 @@ def get_lineas_servicio(
     nombre del servicio (ambos en minúsculas). Ajusta el redondeo para que
     la suma sea exactamente igual a valor_total.
     """
-    emp = (empresa or "").lower()
-    svc = (nombre_servicio or "").lower()
+    emp = norm(empresa)
+    svc = norm(nombre_servicio)
 
     plantilla = _REC_STD  # default
     for frag_emp, frag_svc, lineas in _BREAKDOWN_TABLE:
@@ -264,15 +286,98 @@ def _draw_letterhead(canvas, doc):
     canvas.restoreState()
 
 
+_TZ = timezone(timedelta(hours=-5), "America/Bogota")  # Colombia no usa horario de verano
+_SELLO_COLOR = colors.HexColor("#b91c1c")
+
+_sello = ParagraphStyle("Sello", parent=_styles["Normal"], fontSize=14, leading=16,
+                        fontName="Helvetica-Bold", textColor=_SELLO_COLOR, alignment=1)
+_sello_fecha = ParagraphStyle("SelloFecha", parent=_styles["Normal"], fontSize=9,
+                              textColor=_SELLO_COLOR, alignment=1, spaceBefore=3)
+
+
+def fecha_elaboracion(cert: CertificateRequest) -> date:
+    """Día en que se elabora el certificado: el de aprobación (hora Colombia) o hoy."""
+    if cert.reviewed_at:
+        return cert.reviewed_at.astimezone(_TZ).date()
+    return datetime.now(_TZ).date()
+
+
+def fecha_firma(cert: CertificateRequest) -> str:
+    """Fecha que va debajo del cargo del firmante: la fecha de solicitud del documento."""
+    if cert.fecha_solicitud_documento:
+        return cert.fecha_solicitud_documento.strftime("%d/%m/%Y")
+    if cert.created_at:
+        return cert.created_at.astimezone(_TZ).strftime("%d/%m/%Y")
+    return fecha_elaboracion(cert).strftime("%d/%m/%Y")
+
+
+def lleva_sello_cancelado(cert: CertificateRequest) -> bool:
+    return cert.tipo_certificado == TIPO_SERVICIOS or _es_recordar(cert.empresa)
+
+
+def cuerpo_html(cert: CertificateRequest) -> str:
+    """Párrafo principal del certificado (marcado simple <b>, valores escapados).
+
+    Lo usan tanto el PDF como la vista previa, para que siempre digan lo mismo.
+    """
+    e = html.escape
+    tit_nom = e(cert.cliente_nombre_completo or "")
+    tit_doc = e(cert.cliente_numero_documento or "")
+    fal_nom = e(cert.fallecido_nombre_completo or "")
+    fal_doc = e(cert.fallecido_numero_documento or "")
+
+    fechas = []
+    if cert.fecha_servicio:
+        fechas.append(f"Fecha del servicio el día {_fecha_larga(cert.fecha_servicio)}.")
+    if cert.fallecido_fecha_fallecimiento:
+        fechas.append(f"Fecha de Defunción el día {_fecha_larga(cert.fallecido_fecha_fallecimiento)}.")
+    cierre = " ".join(fechas)
+
+    afiliacion = (
+        f", afiliado (a) desde el día {_fecha_larga(cert.fecha_afiliacion)}"
+        if cert.fecha_afiliacion else ""
+    )
+
+    if _es_recordar(cert.empresa):
+        mismo = solo_digitos(cert.cliente_numero_documento) == solo_digitos(cert.fallecido_numero_documento)
+        if mismo or not tit_nom:
+            # El fallecido era el titular del plan — no repetirlo como beneficiario
+            return (
+                f"Que el (la) señor (a) <b>{fal_nom}</b>, identificado (a) con la cédula de "
+                f"ciudadanía N° {fal_doc} (Q.E.P.D){afiliacion}; era titular de los servicios que "
+                f"adquirió en nuestra empresa que se relacionan a continuación. {cierre}"
+            ).strip()
+        return (
+            f"Que el (la) señor (a) <b>{tit_nom}</b>, identificado (a) con la cédula de "
+            f"ciudadanía N° {tit_doc}{afiliacion}; titular de los servicios que adquirió en "
+            f"nuestra empresa que se relacionan a continuación. Los cuales fueron utilizados con "
+            f"el beneficiario (a) <b>{fal_nom}</b> identificado(a) con la cédula de ciudadanía "
+            f"N° {fal_doc} (Q.E.P.D); {cierre}"
+        ).strip()
+
+    return (
+        f"Que el (la) señor (a) <b>{tit_nom}</b>, identificado (a) con la cédula de ciudadanía "
+        f"N° {tit_doc}; titular de los servicios que adquirió en nuestra empresa que se relaciona "
+        f"a continuación. Los cuales fueron utilizados con el beneficiario (a) <b>{fal_nom}</b> "
+        f"identificado(a) con la cédula de ciudadanía N° {fal_doc} (Q.E.P.D); {cierre}"
+    ).strip()
+
+
+def pdf_password(cert: CertificateRequest) -> str:
+    """Contraseña del PDF: cédula del fallecido sin puntos, comas ni otros caracteres."""
+    return solo_digitos(cert.fallecido_numero_documento)
+
+
 def build_certificate_pdf(
     cert: CertificateRequest,
     signer_name: str = "",
     signer_cargo: str = "Administrador de Ciudad",
-    lineas_servicio: list | None = None,
+    grupos: list[dict] | None = None,
+    destino: str | None = None,
 ) -> bytes:
     buffer = io.BytesIO()
 
-    issue = cert.reviewed_at.date() if cert.reviewed_at else date.today()
+    issue = fecha_elaboracion(cert)
 
     frame = Frame(
         _LEFT_MARGIN,
@@ -302,6 +407,7 @@ def build_certificate_pdf(
     )
 
     story: list = []
+    content_width = _PAGE_W - _LEFT_MARGIN - _RIGHT_MARGIN
 
     # ── Certificate reference number ──────────────────────────────────────────
     if cert.numero_aviso:
@@ -311,43 +417,22 @@ def build_certificate_pdf(
     else:
         codigo = None
     if codigo:
-        story.append(Paragraph(codigo, _cert_num))
+        story.append(Paragraph(html.escape(codigo), _cert_num))
 
     # ── CERTIFICAMOS heading ──────────────────────────────────────────────────
     story.append(Paragraph("CERTIFICAMOS", _heading))
 
     # ── Body paragraph ────────────────────────────────────────────────────────
-    fallecimiento = _fecha_larga(cert.fallecido_fecha_fallecimiento) if cert.fallecido_fecha_fallecimiento else "-"
-    es_recordar = "recordar" in (cert.empresa or "").lower()
-
-    if es_recordar:
-        # RECORDAR: el fallecido es el titular del plan — no repetir como beneficiario
-        body_text = (
-            f"Que el (la) señor (a) <b>{cert.fallecido_nombre_completo}</b>, "
-            f"identificado (a) con la cédula de ciudadanía N° {cert.fallecido_numero_documento} (Q.E.P.D); "
-            f"era titular de los servicios que adquirió en nuestra empresa que se relacionan "
-            f"a continuación. Fecha de Defunción el día {fallecimiento}."
-        )
-    else:
-        body_text = (
-            f"Que el (la) señor (a) <b>{cert.cliente_nombre_completo}</b>, "
-            f"identificado (a) con la cédula de ciudadanía N° {cert.cliente_numero_documento}; "
-            f"titular de los servicios que adquirió en nuestra empresa que se relaciona "
-            f"a continuación. Los cuales fueron utilizados con el beneficiario (a) "
-            f"<b>{cert.fallecido_nombre_completo}</b> identificado(a) con la cédula de "
-            f"ciudadanía N° {cert.fallecido_numero_documento} (Q.E.P.D); "
-            f"Fecha de Defunción el día {fallecimiento}."
-        )
-    story.append(Paragraph(body_text, _body))
+    es_recordar = _es_recordar(cert.empresa)
+    story.append(Paragraph(cuerpo_html(cert), _body))
     story.append(Spacer(1, 0.3 * cm))
 
     # ── Services table ────────────────────────────────────────────────────────
-    if cert.nombre_servicio or cert.valor_total:
-        content_width = _PAGE_W - _LEFT_MARGIN - _RIGHT_MARGIN
+    grupos = grupos or []
+    if grupos or cert.nombre_servicio or cert.valor_total:
         val_col = 4 * cm
         svc_col = content_width - val_col
 
-        # Header row
         header = Table(
             [[Paragraph("SERVICIOS UTILIZADOS", _svc_bold),
               Paragraph("VALOR", _svc_r)]],
@@ -368,8 +453,21 @@ def build_certificate_pdf(
             ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ])
 
+        def _row(nombre: str, valor: int | None, style=_body, bold_val=True):
+            dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(nombre)))
+            if valor is None:
+                val_str = "-"
+            else:
+                val_str = "$ -" if valor == 0 else f"$ {_formato_cop(valor)}"
+            t = Table(
+                [[Paragraph(f"{html.escape(nombre)}{dots}", style),
+                  Paragraph(val_str, _svc_r)]],
+                colWidths=[svc_col, val_col],
+            )
+            t.setStyle(row_style)
+            return t
+
         if cert.valor_total:
-            # Total at the top of the table
             palabras_top = _numero_a_palabras(cert.valor_total)
             total_top = Table(
                 [[Paragraph(f"TOTAL: {palabras_top} PESOS M/L", _svc_bold),
@@ -384,37 +482,18 @@ def build_certificate_pdf(
             ]))
             story.append(total_top)
 
-            # Desglose completo por porcentajes
-            lineas = (
-                lineas_servicio
-                if lineas_servicio is not None
-                else get_lineas_servicio(cert.empresa, cert.nombre_servicio, cert.valor_total)
-            )
-            for nombre, valor in lineas:
-                dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(nombre)))
-                val_str = "$ -" if valor == 0 else f"$ {_formato_cop(valor)}"
-                row = Table(
-                    [[Paragraph(f"{nombre}{dots}", _body),
-                      Paragraph(val_str, _svc_r)]],
-                    colWidths=[svc_col, val_col],
-                )
-                row.setStyle(row_style)
-                story.append(row)
+        if grupos:
+            for g in grupos:
+                if g.get("titulo"):
+                    story.append(_row(g["titulo"], g["valor"], style=_svc_bold))
+                for nombre, valor in g["lineas"]:
+                    story.append(_row(nombre, valor))
         else:
-            # Tabla simple cuando no hay valor total
-            svc_name = cert.nombre_servicio or ""
-            dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(svc_name)))
-            row = Table(
-                [[Paragraph(f"{svc_name}{dots}", _body), Paragraph("-", _svc_r)]],
-                colWidths=[svc_col, val_col],
-            )
-            row.setStyle(row_style)
-            story.append(row)
+            story.append(_row(cert.nombre_servicio or "", cert.valor_total))
 
         if cert.descripcion_servicio:
-            story.append(Paragraph(f"({cert.descripcion_servicio})", _body))
+            story.append(Paragraph(f"({html.escape(cert.descripcion_servicio)})", _body))
 
-        # Closing rule
         closing = Table([[""]], colWidths=[content_width])
         closing.setStyle(TableStyle([
             ("LINEBELOW", (0, 0), (-1, -1), 0.5, colors.black),
@@ -423,6 +502,9 @@ def build_certificate_pdf(
         ]))
         story.append(closing)
         story.append(Spacer(1, 0.3 * cm))
+
+        if destino:
+            story.append(Paragraph(f"({destino})", _total))
 
         if cert.valor_total:
             palabras = _numero_a_palabras(cert.valor_total)
@@ -447,24 +529,43 @@ def build_certificate_pdf(
         f"{issue.day} días del mes de {_MESES[issue.month]} de {issue.year}."
     )
     if cert.numero_factura:
-        footer_text += f" Amparado bajo la Factura N° {cert.numero_factura}"
+        footer_text += f" Amparado bajo la Factura N° {html.escape(cert.numero_factura)}"
     elif cert.numero_recibo_caja:
-        footer_text += f" Recibo de caja N° {cert.numero_recibo_caja}"
+        footer_text += f" Recibo de caja N° {html.escape(cert.numero_recibo_caja)}"
     story.append(Paragraph(footer_text, _footer_p))
 
-    # ── Signature block ───────────────────────────────────────────────────────
+    # ── Signature block (+ sello de cancelado para RECORDAR) ─────────────────
     story.append(Spacer(1, 1.0 * cm))
+    firma: list = []
     if Path(_SIGNATURE).exists():
         sig_img = Image(_SIGNATURE, width=5 * cm, height=2 * cm)
         sig_img.hAlign = "LEFT"
-        story.append(sig_img)
+        firma.append(sig_img)
     else:
-        story.append(Spacer(1, 2 * cm))
+        firma.append(Spacer(1, 2 * cm))
+    firma.append(Paragraph(html.escape(signer_name or "Administrador de Ciudad"), _sig_name))
+    firma.append(Paragraph(html.escape(signer_cargo or "Administrador de Ciudad"), _sig_role))
+    firma.append(Paragraph(fecha_firma(cert), _sig_role))
 
-    story.append(Paragraph(signer_name or "Administrador de Ciudad", _sig_name))
-    story.append(Paragraph(signer_cargo or "Administrador de Ciudad", _sig_role))
-    entry_date = cert.created_at.strftime("%d/%m/%Y") if cert.created_at else issue.strftime("%d/%m/%Y")
-    story.append(Paragraph(entry_date, _sig_role))
+    if lleva_sello_cancelado(cert):
+        caja = Table([[Paragraph("CANCELADO", _sello)]], colWidths=[4.6 * cm])
+        caja.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 1.5, _SELLO_COLOR),
+            ("ROUNDEDCORNERS", [6, 6, 6, 6]),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ]))
+        sello = [Spacer(1, 0.6 * cm), caja,
+                 Paragraph(issue.strftime("%d/%m/%Y"), _sello_fecha)]
+        bloque = Table([[firma, sello]], colWidths=[content_width - 6 * cm, 6 * cm])
+        bloque.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(bloque)
+    else:
+        story.extend(firma)
 
     doc.build(story)
     return buffer.getvalue()

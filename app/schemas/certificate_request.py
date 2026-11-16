@@ -1,45 +1,26 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, ValidationInfo, field_validator
 
 
 class ServicioLineaIn(BaseModel):
+    # servicio: opción elegida del catálogo (None en certificados antiguos con líneas manuales)
+    servicio: str | None = Field(default=None, max_length=300)
     nombre: str = Field(min_length=1, max_length=300)
-    valor: int = Field(ge=0, le=100_000_000)
+    valor: int = Field(ge=0, le=2_000_000_000)
+
 
 TipoDocumento = Literal["CC", "CE", "TI", "PAS", "RC"]
 
-TIPOS_CERTIFICADO = [
-    "CERTIFICADO DE GASTOS RECORDAR",
-    "CERTIFICACION DE GASTOS POR FACTURA",
-    "CERTIFICADO DE ELEMENTOS DETALLADO",
-    "CERTIFICADO DE ELEMENTOS PARA SUCESION",
-    "CERTIFICADO DE ELEMENTOS SENCILLO",
-]
 
-EMPRESAS = ["RECORDAR", "PARQUES Y FUNERARIAS"]
-
-# Servicios por empresa — el fragmento en minúsculas debe coincidir con
-# la lógica de get_lineas_servicio en pdf_service.py
-SERVICIOS_RECORDAR = [
-    "SERVICIO FUNERARIO CON TRANSPORTE, VELACIÓN Y MISA",
-    "SERVICIO FUNERARIO CON TRANSPORTE Y VELACIÓN",
-    "SERVICIO FUNERARIO",
-]
-
-SERVICIOS_PYF = [
-    "SERVICIO FUNERARIO CREMACIÓN",
-    "SERVICIO FUNERARIO GRAN EXTRA",
-    "SERVICIO FUNERARIO ESTILO J",
-    "SERVICIO FUNERARIO ESTILO K",
-    "SERVICIO FUNERARIO ESTILO L",
-    "SERVICIO FUNERARIO ESTÁNDAR",
-]
-
-TODOS_LOS_SERVICIOS = SERVICIOS_RECORDAR + [
-    s for s in SERVICIOS_PYF if s not in SERVICIOS_RECORDAR
-]
+def _fecha_no_futura(v, mensaje: str):
+    if v is None or v == "":
+        return None
+    d = v if isinstance(v, date) else date.fromisoformat(str(v))
+    if d > date.today():
+        raise ValueError(mensaje)
+    return d
 
 
 class CertificateRequestIn(BaseModel):
@@ -63,7 +44,7 @@ class CertificateRequestIn(BaseModel):
     fallecido_tipo_documento: TipoDocumento
     fallecido_numero_documento: str = Field(min_length=1, max_length=30)
     fallecido_fecha_nacimiento: date | None = None
-    fallecido_fecha_fallecimiento: date
+    fallecido_fecha_fallecimiento: date | None = None
     fallecido_lugar_fallecimiento: str | None = Field(default=None, max_length=255)
     fallecido_causa_fallecimiento: str | None = Field(default=None, max_length=255)
     fallecido_numero_acta_defuncion: str | None = Field(default=None, max_length=50)
@@ -74,6 +55,8 @@ class CertificateRequestIn(BaseModel):
     valor_total: int | None = Field(default=None, ge=0, le=2_000_000_000)
 
     # Metadatos del certificado
+    # Orden importante: cada validador de orden de fechas lee en info.data las fechas declaradas antes
+    fecha_servicio: date | None = None
     fecha_solicitud_documento: date | None = None
 
     # Datos administrativos
@@ -95,22 +78,52 @@ class CertificateRequestIn(BaseModel):
             return None
         return v
 
-    @field_validator("fecha_solicitud_documento", "fallecido_fecha_nacimiento", mode="before")
+    @field_validator("fallecido_fecha_nacimiento", mode="before")
     @classmethod
     def nacimiento_no_futuro(cls, v):
-        if v is None or v == "":
-            return None
-        d = v if isinstance(v, date) else date.fromisoformat(str(v))
-        if d > date.today():
-            raise ValueError("La fecha de nacimiento no puede ser futura.")
-        return d
+        return _fecha_no_futura(v, "La fecha de nacimiento no puede ser futura.")
+
+    @field_validator("fecha_solicitud_documento", mode="before")
+    @classmethod
+    def solicitud_no_futura(cls, v):
+        return _fecha_no_futura(v, "La fecha de solicitud no puede ser futura.")
+
+    @field_validator("fecha_servicio", mode="before")
+    @classmethod
+    def servicio_no_futuro(cls, v):
+        return _fecha_no_futura(v, "La fecha del servicio no puede ser futura.")
+
+    @field_validator("fecha_afiliacion", mode="before")
+    @classmethod
+    def afiliacion_no_futura(cls, v):
+        return _fecha_no_futura(v, "La fecha de afiliación no puede ser futura.")
 
     @field_validator("fallecido_fecha_fallecimiento", mode="before")
     @classmethod
     def fallecimiento_no_futuro(cls, v):
-        if v is None or v == "":
-            raise ValueError("La fecha de fallecimiento es obligatoria.")
-        d = v if isinstance(v, date) else date.fromisoformat(str(v))
-        if d > date.today():
-            raise ValueError("La fecha de fallecimiento no puede ser futura.")
-        return d
+        return _fecha_no_futura(v, "La fecha de fallecimiento no puede ser futura.")
+
+    @field_validator("fallecido_fecha_fallecimiento", mode="after")
+    @classmethod
+    def fallecimiento_despues_de_nacimiento(cls, v, info: ValidationInfo):
+        # fallecido_fecha_nacimiento se declara antes, así que ya está validada en info.data
+        nacimiento = info.data.get("fallecido_fecha_nacimiento")
+        if v and nacimiento and v < nacimiento:
+            raise ValueError("La fecha de fallecimiento no puede ser anterior a la de nacimiento.")
+        return v
+
+    @field_validator("fecha_servicio", mode="after")
+    @classmethod
+    def servicio_despues_de_fallecimiento(cls, v, info: ValidationInfo):
+        fallecimiento = info.data.get("fallecido_fecha_fallecimiento")
+        if v and fallecimiento and v < fallecimiento:
+            raise ValueError("La fecha del servicio no puede ser anterior a la de fallecimiento.")
+        return v
+
+    @field_validator("fecha_solicitud_documento", mode="after")
+    @classmethod
+    def solicitud_despues_de_servicio(cls, v, info: ValidationInfo):
+        servicio = info.data.get("fecha_servicio")
+        if v and servicio and v < servicio:
+            raise ValueError("La fecha de solicitud no puede ser anterior a la del servicio.")
+        return v

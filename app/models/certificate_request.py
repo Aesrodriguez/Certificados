@@ -43,18 +43,18 @@ class CertificateRequest(Base, UUIDPKMixin, TimestampMixin):
     cliente_nombre_completo: Mapped[str] = mapped_column(String(255), nullable=False)
     cliente_tipo_documento: Mapped[str] = mapped_column(String(20), nullable=False)
     cliente_numero_documento: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
-    cliente_telefono: Mapped[str] = mapped_column(String(30), nullable=False)
-    cliente_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    cliente_telefono: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    cliente_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     cliente_direccion: Mapped[str | None] = mapped_column(String(255), nullable=True)
     cliente_ciudad: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    cliente_parentesco: Mapped[str] = mapped_column(String(100), nullable=False)
+    cliente_parentesco: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Fallecido
     fallecido_nombre_completo: Mapped[str] = mapped_column(String(255), nullable=False)
     fallecido_tipo_documento: Mapped[str] = mapped_column(String(20), nullable=False)
     fallecido_numero_documento: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
     fallecido_fecha_nacimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
-    fallecido_fecha_fallecimiento: Mapped[date] = mapped_column(Date, nullable=False)
+    fallecido_fecha_fallecimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
     fallecido_lugar_fallecimiento: Mapped[str | None] = mapped_column(String(255), nullable=True)
     fallecido_causa_fallecimiento: Mapped[str | None] = mapped_column(String(255), nullable=True)
     fallecido_numero_acta_defuncion: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -64,6 +64,7 @@ class CertificateRequest(Base, UUIDPKMixin, TimestampMixin):
     observaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     fecha_solicitud_documento: Mapped[date | None] = mapped_column(Date, nullable=True)
+    fecha_servicio: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # Campos del dashboard Asesor (basados en el Excel de solicitudes)
     empresa: Mapped[str | None] = mapped_column(String(100), nullable=True)

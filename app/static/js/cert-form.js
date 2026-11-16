@@ -19,181 +19,273 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  /* ── Filtrar servicios según empresa seleccionada ── */
-  var grpRecordar      = document.querySelector('.opts-recordar');
-  var grpPyf           = document.querySelector('.opts-pyf');
-  var selServicio      = document.getElementById('selectServicio');
-  var selEmpresa       = document.getElementById('selectEmpresa');
-  var btnCargarPlant   = document.getElementById('btnCargarPlantilla');
-  var msgPlantilla     = document.getElementById('msgPlantilla');
+  /* ── Catálogo enviado por el servidor ── */
+  var cat = document.getElementById('catalogo');
+  function leerJSON(attr) {
+    try { return JSON.parse(cat.getAttribute(attr) || '{}'); } catch (e) { return {}; }
+  }
+  var TIPOS        = cat ? leerJSON('data-tipos') : {};
+  var SERVICIOS    = cat ? leerJSON('data-servicios') : {};
+  var DESGLOSADOS  = cat ? leerJSON('data-desglosados') : {};
+  var OTROS        = cat ? cat.getAttribute('data-otros') : 'OTROS';
 
-  function actualizarBtnPlantilla() {
-    if (!btnCargarPlant) return;
-    var ok = selEmpresa && selEmpresa.value && selServicio && selServicio.value;
-    btnCargarPlant.disabled = !ok;
+  var TIPO_FACTURA   = 'CERTIFICADO DE GASTOS POR FACTURA';
+  var TIPO_SERVICIOS = 'CERTIFICADO DE GASTOS POR SERVICIOS';
+
+  var selEmpresa = document.getElementById('selectEmpresa');
+  var selTipo    = document.getElementById('selectTipo');
+
+  function opcion(value, text, selected) {
+    var o = document.createElement('option');
+    o.value = value;
+    o.textContent = text;
+    if (selected) o.selected = true;
+    return o;
   }
 
-  if (selEmpresa && selServicio && grpRecordar && grpPyf) {
-    function filtrarServicios() {
-      var emp = selEmpresa.value;
-      grpRecordar.style.display = (emp === '' || emp === 'RECORDAR')              ? '' : 'none';
-      grpPyf.style.display      = (emp === '' || emp === 'PARQUES Y FUNERARIAS')  ? '' : 'none';
-
-      var opt = selServicio.options[selServicio.selectedIndex];
-      if (opt && opt.value !== '') {
-        var cls = opt.className;
-        if ((emp === 'RECORDAR'              && cls === 'opt-pyf') ||
-            (emp === 'PARQUES Y FUNERARIAS'  && cls === 'opt-recordar')) {
-          selServicio.value = '';
-        }
-      }
-      actualizarBtnPlantilla();
+  /* ── Tipo de documento según empresa ── */
+  function llenarTipos() {
+    if (!selTipo) return;
+    var actual = selTipo.value || selTipo.getAttribute('data-actual') || '';
+    selTipo.setAttribute('data-actual', '');
+    var lista = TIPOS[selEmpresa.value] || [];
+    selTipo.innerHTML = '';
+    selTipo.appendChild(opcion('', '-- Seleccionar --', false));
+    lista.forEach(function (t) { selTipo.appendChild(opcion(t, t, t === actual)); });
+    if (actual && lista.indexOf(actual) === -1 && !selEmpresa.value) {
+      selTipo.appendChild(opcion(actual, actual, true));  // valor antiguo / importado
     }
-    selEmpresa.addEventListener('change', filtrarServicios);
-    selServicio.addEventListener('change', actualizarBtnPlantilla);
-    filtrarServicios();
+    if (lista.length === 1 && !selTipo.value) selTipo.value = lista[0];
+    mostrarCamposTipo();
   }
 
-  /* ── Validación de fechas ── */
-  var today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  function validarFecha(inputEl, errEl) {
-    if (!inputEl || !inputEl.value) return true;
-    var d = new Date(inputEl.value + 'T00:00:00');
-    if (d > today) {
-      inputEl.classList.add('is-invalid');
-      if (errEl) errEl.style.display = 'block';
-      return false;
-    }
-    inputEl.classList.remove('is-invalid');
-    inputEl.classList.add('is-valid');
-    if (errEl) errEl.style.display = 'none';
-    return true;
+  /* ── Campos visibles según el tipo ── */
+  function mostrarCamposTipo() {
+    var t = selTipo ? selTipo.value : '';
+    var grupos = {
+      gastos:     t === TIPO_FACTURA || t === TIPO_SERVICIOS,
+      factura:    t === TIPO_FACTURA,
+      servicios:  t === TIPO_SERVICIOS,
+      elementos:  t.indexOf('ELEMENTOS') !== -1
+    };
+    document.querySelectorAll('[data-solo-tipo]').forEach(function (el) {
+      el.hidden = !grupos[el.getAttribute('data-solo-tipo')];
+    });
   }
 
-  var fechaSol  = document.getElementById('fechaSolicitud');
-  var fechaNac  = document.getElementById('fechaNacimiento');
-  var fechaFall = document.getElementById('fechaFallecimiento');
-  var errNac    = document.getElementById('errNacimiento');
-  var errFall   = document.getElementById('errFallecimiento');
+  /* ── Servicios prestados ── */
+  var container   = document.getElementById('svcsContainer');
+  var emptyNote   = document.getElementById('svcsEmpty');
+  var totalTxt    = document.getElementById('valorTotalTxt');
+  var destinoTxt  = document.getElementById('destinoFinal');
+  var btnAdd      = document.getElementById('btnAddSvc');
 
-  if (fechaSol)  fechaSol.addEventListener('change',  function () { validarFecha(fechaSol,  null); });
-  if (fechaNac)  fechaNac.addEventListener('change',  function () { validarFecha(fechaNac,  errNac);  });
-  if (fechaFall) fechaFall.addEventListener('change', function () { validarFecha(fechaFall, errFall); });
+  function cop(n) { return '$ ' + (n || 0).toLocaleString('es-CO'); }
 
-  /* ── Servicios dinámicos ── */
-  var container  = document.getElementById('svcsContainer');
-  var emptyNote  = document.getElementById('svcsEmpty');
-  var valorTotal = document.getElementById('valorTotal');
-  var btnAdd     = document.getElementById('btnAddSvc');
+  function quitarTildes(s) {
+    return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+  }
 
-  function recalcTotal() {
-    if (!container || !emptyNote) return;
+  function recalc() {
+    if (!container) return;
     var rows = container.querySelectorAll('.svc-row');
-    emptyNote.style.display = rows.length === 0 ? '' : 'none';
-    if (rows.length === 0) return;
-    var sum = 0;
+    emptyNote.style.display = rows.length ? 'none' : '';
+    var sum = 0, nombres = [];
     rows.forEach(function (row) {
       var v = parseInt(row.querySelector('.svc-val').value || '0', 10);
       if (!isNaN(v)) sum += v;
+      nombres.push(quitarTildes(row.querySelector('.svc-sel').value));
     });
-    if (valorTotal) valorTotal.value = sum > 0 ? sum : '';
-  }
-
-  function addRow(nombre, valor) {
-    if (!container) return;
-    var div = document.createElement('div');
-    div.className = 'svc-row row g-2 mb-2 align-items-center';
-    div.innerHTML =
-      '<div class="col">' +
-        '<input type="text" class="form-control form-control-sm svc-nom" name="svc_nombre" ' +
-               'placeholder="Nombre del ítem" value="' + (nombre || '').replace(/"/g, '&quot;') + '">' +
-      '</div>' +
-      '<div class="col-md-3">' +
-        '<input type="number" class="form-control form-control-sm svc-val" name="svc_valor" ' +
-               'placeholder="Valor COP" min="0" value="' + (valor || '') + '">' +
-      '</div>' +
-      '<div class="col-auto">' +
-        '<button type="button" class="btn btn-sm btn-outline-danger svc-del" title="Eliminar">' +
-          '<i class="bi bi-trash"></i>' +
-        '</button>' +
-      '</div>';
-
-    div.querySelector('.svc-del').addEventListener('click', function () {
-      div.remove();
-      recalcTotal();
-    });
-    div.querySelector('.svc-val').addEventListener('input', recalcTotal);
-
-    container.appendChild(div);
-    recalcTotal();
-    div.querySelector('.svc-nom').focus();
-  }
-
-  if (container && btnAdd) {
-    btnAdd.addEventListener('click', function () { addRow('', ''); });
-
-    /* Initialise from server-side data attribute */
-    var raw = container.getAttribute('data-initial');
-    if (raw) {
-      try {
-        var items = JSON.parse(raw);
-        if (Array.isArray(items)) {
-          items.forEach(function (item) { addRow(item.nombre, item.valor); });
-        }
-      } catch (e) { /* ignore parse errors */ }
+    totalTxt.textContent = cop(sum);
+    var destino = '';
+    if (nombres.some(function (n) { return n.indexOf('CREMACION') !== -1; })) {
+      destino = '(Cremación – Destino Final)';
+    } else if (nombres.some(function (n) { return n.indexOf('SERVICIO FUNERARIO') === 0; })) {
+      destino = '(Inhumación – Destino Final)';
     }
-
-    recalcTotal();
+    destinoTxt.textContent = destino;
   }
 
-  /* ── Cargar ítems desde plantilla (fetch al servidor) ── */
-  if (btnCargarPlant) {
-    btnCargarPlant.addEventListener('click', function () {
-      var empresa       = selEmpresa  ? selEmpresa.value  : '';
-      var servicio      = selServicio ? selServicio.value : '';
-      var vt            = valorTotal  ? parseInt(valorTotal.value || '0', 10) : 0;
+  function llenarServicios(sel, actual) {
+    var lista = SERVICIOS[selEmpresa.value] || [];
+    sel.innerHTML = '';
+    sel.appendChild(opcion('', '-- Servicio --', false));
+    lista.forEach(function (s) { sel.appendChild(opcion(s, s, s === actual)); });
+    if (actual && lista.indexOf(actual) === -1) sel.appendChild(opcion(actual, actual, true));
+  }
 
-      if (!empresa || !servicio) {
-        if (msgPlantilla) msgPlantilla.textContent = 'Selecciona empresa y tipo de servicio primero.';
-        return;
-      }
-      if (!vt) {
-        if (msgPlantilla) msgPlantilla.textContent = 'Ingresa el valor total antes de cargar la plantilla.';
-        return;
-      }
+  function desglosa(servicio) {
+    return (DESGLOSADOS[selEmpresa.value] || []).indexOf(servicio) !== -1;
+  }
 
-      btnCargarPlant.disabled = true;
-      if (msgPlantilla) msgPlantilla.textContent = 'Cargando…';
+  function pintarDesglose(row) {
+    var sel   = row.querySelector('.svc-sel');
+    var desc  = row.querySelector('.svc-desc');
+    var val   = parseInt(row.querySelector('.svc-val').value || '0', 10);
+    var box   = row.querySelector('.svc-desglose');
+    var esOtros = sel.value === OTROS;
 
+    desc.parentElement.hidden = !esOtros;
+    desc.required = esOtros;
+    box.innerHTML = '';
+
+    if (!sel.value) return;
+    if (!desglosa(sel.value)) {
+      box.textContent = 'No se desglosa.';
+      return;
+    }
+    if (!val) {
+      box.textContent = 'Ingresa el valor para ver el desglose.';
+      return;
+    }
+    clearTimeout(row._t);
+    row._t = setTimeout(function () {
       var url = '/certificates/api/lineas'
-        + '?empresa=' + encodeURIComponent(empresa)
-        + '&nombre_servicio=' + encodeURIComponent(servicio)
-        + '&valor_total=' + vt;
-
+        + '?empresa=' + encodeURIComponent(selEmpresa.value)
+        + '&nombre_servicio=' + encodeURIComponent(sel.value)
+        + '&valor_total=' + val;
       fetch(url, { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
         .then(function (items) {
-          if (!Array.isArray(items) || items.length === 0) {
-            if (msgPlantilla) msgPlantilla.textContent = 'No se encontró plantilla para esta combinación.';
-            btnCargarPlant.disabled = false;
-            return;
-          }
-          // Limpiar ítems existentes
-          if (container) {
-            container.querySelectorAll('.svc-row').forEach(function (r) { r.remove(); });
-          }
-          items.forEach(function (item) { addRow(item.nombre, item.valor); });
-          if (msgPlantilla) msgPlantilla.textContent = items.length + ' ítems cargados.';
-          btnCargarPlant.disabled = false;
+          box.innerHTML = '';
+          var tbl = document.createElement('table');
+          tbl.className = 'table table-sm table-borderless mb-0 small text-muted';
+          (items || []).forEach(function (it) {
+            var tr = document.createElement('tr');
+            var a = document.createElement('td'); a.textContent = it.nombre;
+            var b = document.createElement('td'); b.className = 'text-end text-nowrap';
+            b.textContent = it.valor ? cop(it.valor) : '$ -';
+            tr.appendChild(a); tr.appendChild(b); tbl.appendChild(tr);
+          });
+          box.appendChild(tbl);
         })
-        .catch(function () {
-          if (msgPlantilla) msgPlantilla.textContent = 'Error al cargar la plantilla. Intenta de nuevo.';
-          btnCargarPlant.disabled = false;
+        .catch(function () { box.textContent = 'No se pudo calcular el desglose.'; });
+    }, 350);
+  }
+
+  function addRow(item) {
+    item = item || {};
+    var row = document.createElement('div');
+    row.className = 'svc-row border rounded p-2 mb-2';
+    row.innerHTML =
+      '<div class="row g-2 align-items-center">' +
+        '<div class="col-md-5"><select class="form-select form-select-sm svc-sel" name="svc_servicio" required></select></div>' +
+        '<div class="col-md-4"><input type="text" class="form-control form-control-sm svc-desc" name="svc_desc" maxlength="300" placeholder="Descripción del ítem"></div>' +
+        '<div class="col"><input type="number" class="form-control form-control-sm svc-val" name="svc_valor" min="0" placeholder="Valor COP"></div>' +
+        '<div class="col-auto"><button type="button" class="btn btn-sm btn-outline-danger svc-del" title="Eliminar"><i class="bi bi-trash"></i></button></div>' +
+      '</div>' +
+      '<div class="svc-desglose small text-muted mt-1"></div>';
+
+    var sel = row.querySelector('.svc-sel');
+    llenarServicios(sel, item.servicio || '');
+    row.querySelector('.svc-desc').value = item.desc || '';
+    row.querySelector('.svc-val').value  = item.valor || '';
+
+    sel.addEventListener('change', function () { pintarDesglose(row); recalc(); });
+    row.querySelector('.svc-val').addEventListener('input', function () { pintarDesglose(row); recalc(); });
+    row.querySelector('.svc-del').addEventListener('click', function () { row.remove(); recalc(); });
+
+    container.appendChild(row);
+    pintarDesglose(row);
+    recalc();
+    return row;
+  }
+
+  if (selEmpresa) {
+    selEmpresa.addEventListener('change', function () {
+      llenarTipos();
+      if (container) {
+        container.querySelectorAll('.svc-row').forEach(function (row) {
+          var sel = row.querySelector('.svc-sel');
+          var lista = SERVICIOS[selEmpresa.value] || [];
+          llenarServicios(sel, lista.indexOf(sel.value) !== -1 ? sel.value : '');
+          pintarDesglose(row);
         });
+        recalc();
+      }
     });
   }
+  if (selTipo) selTipo.addEventListener('change', mostrarCamposTipo);
+  llenarTipos();
+
+  if (container && btnAdd) {
+    btnAdd.addEventListener('click', function () {
+      if (!selEmpresa.value) {
+        selEmpresa.classList.add('is-invalid');
+        selEmpresa.focus();
+        return;
+      }
+      addRow({}).querySelector('.svc-sel').focus();
+    });
+    try {
+      var items = JSON.parse(container.getAttribute('data-initial') || '[]');
+      if (Array.isArray(items)) items.forEach(addRow);
+    } catch (e) { /* ignore parse errors */ }
+    recalc();
+  }
+
+  /* ── Validación de fechas ──
+     Cadena en orden: nacimiento → fallecimiento → servicio → solicitud.
+     Cada fecha no puede ser futura ni anterior a la anterior de la cadena (si ambas están llenas). */
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  var CADENA = [
+    { id: 'fechaNacimiento',    nombre: 'nacimiento' },
+    { id: 'fechaFallecimiento', nombre: 'fallecimiento', antes: 'La fecha de fallecimiento no puede ser anterior a la de nacimiento.' },
+    { id: 'fechaServicio',      nombre: 'del servicio',  antes: 'La fecha del servicio no puede ser anterior a la de fallecimiento.' },
+    { id: 'fechaSolicitud',     nombre: 'de solicitud',  antes: 'La fecha de solicitud no puede ser anterior a la del servicio.' }
+  ].map(function (c) {
+    c.el  = document.getElementById(c.id);
+    c.err = c.el ? c.el.parentElement.querySelector('.invalid-feedback') : null;
+    return c;
+  }).filter(function (c) { return c.el; });
+
+  function marcar(c, msg) {
+    c.el.classList.add('is-invalid');
+    if (c.err) { c.err.textContent = msg; c.err.style.display = 'block'; }
+  }
+
+  function limpiar(c) {
+    c.el.classList.remove('is-invalid');
+    if (c.err) c.err.style.display = 'none';
+  }
+
+  function validarFechaCadena(idx) {
+    var c = CADENA[idx];
+    var prev = idx > 0 ? CADENA[idx - 1] : null;
+    if (prev) c.el.min = prev.el.value || '';
+    if (!c.el.value) { limpiar(c); return true; }
+    if (new Date(c.el.value + 'T00:00:00') > today) {
+      marcar(c, 'La fecha ' + c.nombre + ' no puede ser futura.');
+      return false;
+    }
+    if (prev && prev.el.value && c.el.value < prev.el.value) {
+      marcar(c, c.antes);
+      return false;
+    }
+    limpiar(c);
+    return true;
+  }
+
+  function validarFechas(desde) {
+    var ok = true;
+    for (var k = desde || 0; k < CADENA.length; k++) {
+      if (!validarFechaCadena(k)) ok = false;
+    }
+    return ok;
+  }
+
+  CADENA.forEach(function (c, idx) {
+    if (idx > 0) c.el.min = CADENA[idx - 1].el.value || '';
+    c.el.addEventListener('change', function () {
+      validarFechaCadena(idx);
+      // revalidar las siguientes que ya tengan valor (su mínimo cambió)
+      for (var k = idx + 1; k < CADENA.length; k++) {
+        if (CADENA[k].el.value) validarFechaCadena(k); else CADENA[k].el.min = CADENA[k - 1].el.value || '';
+      }
+    });
+  });
 
   /* ── Validación general al enviar ── */
   var certForm = document.getElementById('certForm');
@@ -203,6 +295,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var ok = true;
 
     this.querySelectorAll('[required]').forEach(function (el) {
+      if (el.closest('[hidden]')) return;
       if (!el.value.trim()) {
         el.classList.add('is-invalid');
         ok = false;
@@ -211,17 +304,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    if (!validarFecha(fechaNac,  errNac))  ok = false;
-    if (!validarFecha(fechaFall, errFall)) ok = false;
-
-    if (fechaFall && !fechaFall.value) {
-      fechaFall.classList.add('is-invalid');
-      if (errFall) {
-        errFall.textContent  = 'La fecha de fallecimiento es obligatoria.';
-        errFall.style.display = 'block';
-      }
-      ok = false;
-    }
+    if (!validarFechas(0)) ok = false;
 
     if (!ok) {
       e.preventDefault();

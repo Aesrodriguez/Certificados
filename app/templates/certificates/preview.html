@@ -174,6 +174,14 @@
             max-width: 5cm;
             margin-bottom: 2px;
         }
+        .signature-row { display: flex; justify-content: space-between; align-items: flex-start; }
+        .sello { width: 6cm; text-align: center; color: #b91c1c; padding-top: 0.6cm; }
+        .sello-caja {
+            border: 1.5pt solid #b91c1c; border-radius: 6px;
+            padding: 8px 0; font: bold 14pt Helvetica, Arial, sans-serif;
+            width: 4.6cm; margin: 0 auto;
+        }
+        .sello-fecha { font-size: 9pt; margin-top: 3px; }
         .sig-name { font-size: 10pt; font-weight: bold; margin-bottom: 1px; }
         .sig-role { font-size: 9pt; }
 
@@ -254,28 +262,9 @@
         <div class="cert-certificamos">CERTIFICAMOS</div>
 
         {% set es_recordar = "recordar" in (cert.empresa or "")|lower %}
-        <div class="cert-body">
-            {% if es_recordar %}
-            Que el (la) señor (a) <strong>{{ cert.fallecido_nombre_completo }}</strong>,
-            identificado (a) con la cédula de ciudadanía N° {{ cert.fallecido_numero_documento }}
-            (Q.E.P.D); era titular de los servicios que adquirió en nuestra empresa que se
-            relacionan a continuación. Fecha de Defunción el día
-            {% if cert.fallecido_fecha_fallecimiento %}{{ issue_fallecimiento }}{% else %}-{% endif %}.
-            {% else %}
-            Que el (la) señor (a) <strong>{{ cert.cliente_nombre_completo }}</strong>,
-            identificado (a) con la cédula de ciudadanía N° {{ cert.cliente_numero_documento }};
-            titular de los servicios que adquirió en nuestra empresa que se relaciona
-            a continuación. Los cuales fueron utilizados con el beneficiario (a)
-            <strong>{{ cert.fallecido_nombre_completo }}</strong>
-            identificado(a) con la cédula de ciudadanía N° {{ cert.fallecido_numero_documento }}
-            (Q.E.P.D);
-            Fecha de Defunción el día
-            {% if cert.fallecido_fecha_fallecimiento %}{{ issue_fallecimiento }}{% else %}-{% endif %}.
-            {% endif %}
-        </div>
+        <div class="cert-body">{{ cuerpo }}</div>
 
-        {% if lineas_servicio %}
-        {# Desglose completo de servicios calculado por porcentajes fijos #}
+        {% if grupos or cert.nombre_servicio or cert.valor_total %}
         <table class="svc-table">
             <thead>
                 <tr>
@@ -290,41 +279,36 @@
                     <td class="val-col"><strong>$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}</strong></td>
                 </tr>
                 {% endif %}
-                {% for nombre, valor in lineas_servicio %}
+                {% if grupos %}
+                {% for g in grupos %}
+                {% if g.titulo %}
+                <tr>
+                    <td><strong>{{ g.titulo }}</strong>{{ "." * [1, 85 - g.titulo|length]|max }}</td>
+                    <td class="val-col"><strong>$ {{ "{:,}".format(g.valor).replace(",", ".") }}</strong></td>
+                </tr>
+                {% endif %}
+                {% for nombre, valor in g.lineas %}
                 <tr>
                     <td>{{ nombre }}{{ "." * [1, 85 - nombre|length]|max }}</td>
                     <td class="val-col">{% if valor %}$ {{ "{:,}".format(valor).replace(",", ".") }}{% else %}$ -{% endif %}</td>
                 </tr>
                 {% endfor %}
-            </tbody>
-        </table>
-        <hr class="svc-rule">
-        <div class="cert-total">
-            TOTAL: {{ total_palabras }} PESOS&nbsp;M/L ($ {{ "{:,}".format(cert.valor_total).replace(",", ".") }})
-        </div>
-
-        {% elif cert.nombre_servicio or cert.valor_total %}
-        {# Tabla simple cuando no hay desglose disponible #}
-        <table class="svc-table">
-            <thead>
+                {% endfor %}
+                {% else %}
                 <tr>
-                    <th>SERVICIOS UTILIZADOS</th>
-                    <th class="val-col">VALOR</th>
+                    <td>{{ cert.nombre_servicio or "" }}{{ "." * [1, 65 - (cert.nombre_servicio or "")|length]|max }}</td>
+                    <td class="val-col">-</td>
                 </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>{% if cert.nombre_servicio %}{{ cert.nombre_servicio }}{{ "." * [1, 65 - cert.nombre_servicio|length]|max }}{% endif %}</td>
-                    <td class="val-col">
-                        {% if cert.valor_total %}$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}{% else %}$ -{% endif %}
-                    </td>
-                </tr>
+                {% endif %}
             </tbody>
         </table>
         {% if cert.descripcion_servicio %}
         <div class="svc-desc">({{ cert.descripcion_servicio }})</div>
         {% endif %}
         <hr class="svc-rule">
+        {% if destino %}
+        <div class="cert-total">({{ destino }})</div>
+        {% endif %}
         {% if cert.valor_total %}
         <div class="cert-total">
             TOTAL: {{ total_palabras }} PESOS&nbsp;M/L ($ {{ "{:,}".format(cert.valor_total).replace(",", ".") }})
@@ -351,11 +335,19 @@
             {% endif %}
         </div>
 
-        <div class="signature-block">
-            <img src="/static/img/signature.png" alt="Firma">
-            <div class="sig-name">{{ asesor_name }}</div>
-            <div class="sig-role">{{ firma_cargo }}</div>
-            <div class="sig-role">{{ entry_date }}</div>
+        <div class="signature-row">
+            <div class="signature-block">
+                <img src="/static/img/signature.png" alt="Firma">
+                <div class="sig-name">{{ asesor_name }}</div>
+                <div class="sig-role">{{ firma_cargo }}</div>
+                <div class="sig-role">{{ fecha_firma }}</div>
+            </div>
+            {% if sello_cancelado %}
+            <div class="sello">
+                <div class="sello-caja">CANCELADO</div>
+                <div class="sello-fecha">{{ issue_date }}</div>
+            </div>
+            {% endif %}
         </div>
 
     </div>

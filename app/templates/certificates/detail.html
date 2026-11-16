@@ -18,23 +18,26 @@
 {% endif %}
 
 {# ── Certificado info ── #}
-{% if cert.tipo_certificado or cert.empresa or cert.numero_certificado %}
+{% if cert.tipo_certificado or cert.empresa or cert.numero_certificado or cert.fecha_servicio %}
 <h2 class="h6 text-muted mt-3">Información del certificado</h2>
 <dl class="row">
     {% if cert.tipo_certificado %}<dt class="col-sm-3">Tipo</dt><dd class="col-sm-9">{{ cert.tipo_certificado }}</dd>{% endif %}
     {% if cert.empresa %}<dt class="col-sm-3">Empresa</dt><dd class="col-sm-9">{{ cert.empresa }}</dd>{% endif %}
-    {% if cert.numero_certificado %}<dt class="col-sm-3">N.º certificado</dt><dd class="col-sm-9">{{ cert.numero_certificado }}</dd>{% endif %}
+    {% if cert.numero_certificado %}<dt class="col-sm-3">N.º documento</dt><dd class="col-sm-9">{{ cert.numero_certificado }}</dd>{% endif %}
+    {% if cert.fecha_solicitud_documento %}<dt class="col-sm-3">Fecha de solicitud</dt><dd class="col-sm-9">{{ cert.fecha_solicitud_documento.strftime('%d/%m/%Y') }}</dd>{% endif %}
+    {% if cert.fecha_servicio %}<dt class="col-sm-3">Fecha del servicio</dt><dd class="col-sm-9">{{ cert.fecha_servicio.strftime('%d/%m/%Y') }}</dd>{% endif %}
+    {% if cert.fecha_afiliacion %}<dt class="col-sm-3">Fecha de afiliación</dt><dd class="col-sm-9">{{ cert.fecha_afiliacion.strftime('%d/%m/%Y') }}</dd>{% endif %}
 </dl>
 {% endif %}
 
 {# ── Solicitante ── #}
-<h2 class="h6 text-muted mt-3">Datos del solicitante</h2>
+<h2 class="h6 text-muted mt-3">Datos del titular</h2>
 <dl class="row">
     <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">{{ cert.cliente_nombre_completo }}</dd>
     <dt class="col-sm-3">Documento</dt><dd class="col-sm-9">{{ cert.cliente_tipo_documento }} {{ cert.cliente_numero_documento }}</dd>
-    <dt class="col-sm-3">Teléfono</dt><dd class="col-sm-9">{{ cert.cliente_telefono }}</dd>
-    <dt class="col-sm-3">Correo</dt><dd class="col-sm-9">{{ cert.cliente_email }}</dd>
-    <dt class="col-sm-3">Parentesco</dt><dd class="col-sm-9">{{ cert.cliente_parentesco }}</dd>
+    {% if cert.cliente_telefono %}<dt class="col-sm-3">Teléfono</dt><dd class="col-sm-9">{{ cert.cliente_telefono }}</dd>{% endif %}
+    {% if cert.cliente_email %}<dt class="col-sm-3">Correo</dt><dd class="col-sm-9">{{ cert.cliente_email }}</dd>{% endif %}
+    {% if cert.cliente_parentesco %}<dt class="col-sm-3">Parentesco</dt><dd class="col-sm-9">{{ cert.cliente_parentesco }}</dd>{% endif %}
     {% if cert.cliente_direccion or cert.cliente_ciudad %}
     <dt class="col-sm-3">Dirección</dt><dd class="col-sm-9">{{ cert.cliente_direccion or "-" }}{% if cert.cliente_ciudad %}, {{ cert.cliente_ciudad }}{% endif %}</dd>
     {% endif %}
@@ -45,7 +48,7 @@
 <dl class="row">
     <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">{{ cert.fallecido_nombre_completo }}</dd>
     <dt class="col-sm-3">Documento</dt><dd class="col-sm-9">{{ cert.fallecido_tipo_documento }} {{ cert.fallecido_numero_documento }}</dd>
-    <dt class="col-sm-3">Fecha de fallecimiento</dt><dd class="col-sm-9">{{ cert.fallecido_fecha_fallecimiento }}</dd>
+    {% if cert.fallecido_fecha_fallecimiento %}<dt class="col-sm-3">Fecha de fallecimiento</dt><dd class="col-sm-9">{{ cert.fallecido_fecha_fallecimiento.strftime('%d/%m/%Y') }}</dd>{% endif %}
     {% if cert.fecha_afiliacion %}<dt class="col-sm-3">Fecha afiliación</dt><dd class="col-sm-9">{{ cert.fecha_afiliacion }}</dd>{% endif %}
     {% if cert.fallecido_fecha_nacimiento %}<dt class="col-sm-3">Fecha nacimiento</dt><dd class="col-sm-9">{{ cert.fallecido_fecha_nacimiento }}</dd>{% endif %}
     {% if cert.fallecido_lugar_fallecimiento %}<dt class="col-sm-3">Lugar</dt><dd class="col-sm-9">{{ cert.fallecido_lugar_fallecimiento }}</dd>{% endif %}

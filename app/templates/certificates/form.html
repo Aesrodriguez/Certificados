@@ -24,62 +24,95 @@
 <form method="post" action="{{ form_action }}" id="certForm" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
+    {# Catálogo para el JS del formulario #}
+    <div id="catalogo" hidden
+         data-tipos="{{ tipos_por_empresa | tojson | e }}"
+         data-servicios="{{ servicios_por_empresa | tojson | e }}"
+         data-desglosados="{{ servicios_desglosados | tojson | e }}"
+         data-otros="{{ otros }}"></div>
+
     {# ── Información del certificado ── #}
     <div class="card mb-3">
         <div class="card-header fw-semibold">Información del certificado</div>
         <div class="card-body">
             <div class="row">
-                <div class="col-md-5 mb-2">
-                    <label class="form-label">Tipo de documento solicitado</label>
-                    <select class="form-select" name="tipo_certificado">
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Empresa <span class="text-danger">*</span></label>
+                    <select class="form-select{% if 'empresa' in fe %} is-invalid{% endif %}" name="empresa" id="selectEmpresa" required>
                         <option value="">-- Seleccionar --</option>
-                        {% set tipos = [
-                            "CERTIFICADO DE GASTOS RECORDAR",
-                            "CERTIFICACION DE GASTOS POR FACTURA",
-                            "CERTIFICADO DE ELEMENTOS DETALLADO",
-                            "CERTIFICADO DE ELEMENTOS PARA SUCESION",
-                            "CERTIFICADO DE ELEMENTOS SENCILLO"
-                        ] %}
-                        {% for t in tipos %}
-                        <option value="{{ t }}" {% if val('tipo_certificado') == t %}selected{% endif %}>{{ t }}</option>
+                        {% for key, label in empresas.items() %}
+                        <option value="{{ key }}" {% if val('empresa') == key %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
+                        {% if val('empresa') and val('empresa') not in empresas %}
+                        <option value="{{ val('empresa') }}" selected>{{ val('empresa') }}</option>
+                        {% endif %}
                     </select>
+                    <div class="invalid-feedback">{{ fe.get('empresa') or 'Selecciona la empresa.' }}</div>
                 </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label">Empresa</label>
-                    <select class="form-select" name="empresa" id="selectEmpresa">
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Tipo de documento <span class="text-danger">*</span></label>
+                    <select class="form-select{% if 'tipo_certificado' in fe %} is-invalid{% endif %}" name="tipo_certificado" id="selectTipo"
+                            data-actual="{{ val('tipo_certificado') }}" required>
                         <option value="">-- Seleccionar --</option>
-                        {% for e in ["RECORDAR", "PARQUES Y FUNERARIAS"] %}
-                        <option value="{{ e }}" {% if val('empresa') == e %}selected{% endif %}>{{ e }}</option>
-                        {% endfor %}
                     </select>
-                </div>
-                <div class="col-md-3 mb-2">
-                    <label class="form-label">N.º certificado</label>
-                    <input class="form-control" name="numero_certificado" value="{{ val('numero_certificado') }}">
-                </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label">Fecha de solicitud del documento</label>
-                    <input class="form-control" type="date" name="fecha_solicitud_documento"
-                           id="fechaSolicitud"
-                           max="{{ today }}"
-                           value="{{ val('fecha_solicitud_documento') }}">
+                    <div class="invalid-feedback">{{ fe.get('tipo_certificado') or 'Selecciona el tipo de documento.' }}</div>
                 </div>
             </div>
+
+            <div class="alert alert-warning py-2 small mb-2" data-solo-tipo="elementos" hidden>
+                <i class="bi bi-hourglass-split me-1"></i>
+                El formato de los certificados de elementos está pendiente. Por ahora se genera con el formato general.
+            </div>
+
+            <div class="row">
+                <div class="col-md-3 mb-2">
+                    <label class="form-label">N.º documento</label>
+                    <input class="form-control solo-nums" name="numero_certificado" inputmode="numeric"
+                           placeholder="Ej: 50000" value="{{ val('numero_certificado') }}">
+                </div>
+                <div class="col-md-3 mb-2">
+                    <label class="form-label">Fecha de solicitud <span class="text-danger" data-solo-tipo="gastos">*</span></label>
+                    <input class="form-control{% if 'fecha_solicitud_documento' in fe %} is-invalid{% endif %}" type="date" name="fecha_solicitud_documento"
+                           id="fechaSolicitud" max="{{ today }}"
+                           value="{{ val('fecha_solicitud_documento') }}">
+                    <div class="invalid-feedback">{{ fe.get('fecha_solicitud_documento') or 'La fecha de solicitud es obligatoria.' }}</div>
+                    <div class="form-text">Va debajo de la firma.</div>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <label class="form-label">Fecha del servicio <span class="text-danger" data-solo-tipo="gastos">*</span></label>
+                    <input class="form-control{% if 'fecha_servicio' in fe %} is-invalid{% endif %}" type="date" name="fecha_servicio"
+                           id="fechaServicio" max="{{ today }}"
+                           value="{{ val('fecha_servicio') }}">
+                    <div class="invalid-feedback">{{ fe.get('fecha_servicio') or 'La fecha del servicio es obligatoria.' }}</div>
+                </div>
+                <div class="col-md-3 mb-2" data-solo-tipo="factura" hidden>
+                    <label class="form-label">N.º factura <span class="text-danger">*</span></label>
+                    <input class="form-control{% if 'numero_factura' in fe %} is-invalid{% endif %}" name="numero_factura"
+                           placeholder="Ej: PC124123" value="{{ val('numero_factura') }}">
+                    <div class="invalid-feedback">{{ fe.get('numero_factura') or 'El número de factura es obligatorio.' }}</div>
+                </div>
+                <div class="col-md-3 mb-2" data-solo-tipo="servicios" hidden>
+                    <label class="form-label">Fecha de afiliación <span class="text-danger">*</span></label>
+                    <input class="form-control{% if 'fecha_afiliacion' in fe %} is-invalid{% endif %}" type="date" name="fecha_afiliacion"
+                           max="{{ today }}" value="{{ val('fecha_afiliacion') }}">
+                    <div class="invalid-feedback">{{ fe.get('fecha_afiliacion') or 'La fecha de afiliación es obligatoria.' }}</div>
+                </div>
+            </div>
+            <div class="form-text">La fecha de elaboración del certificado es automática: el día en que se aprueba.</div>
         </div>
     </div>
 
     {# ── Datos del solicitante ── #}
     <div class="card mb-3">
-        <div class="card-header fw-semibold">Datos del solicitante</div>
+        <div class="card-header fw-semibold">Datos del titular</div>
         <div class="card-body">
             <div class="row">
                 <div class="col-md-6 mb-2">
                     <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
                     <input class="form-control{% if 'cliente_nombre_completo' in fe %} is-invalid{% endif %}" name="cliente_nombre_completo"
                            value="{{ val('cliente_nombre_completo') }}" required
-                           data-msg="El nombre del solicitante es obligatorio.">
-                    <div class="invalid-feedback">{{ fe.get('cliente_nombre_completo') or 'El nombre del solicitante es obligatorio.' }}</div>
+                           data-msg="El nombre del titular es obligatorio.">
+                    <div class="invalid-feedback">{{ fe.get('cliente_nombre_completo') or 'El nombre del titular es obligatorio.' }}</div>
                 </div>
                 <div class="col-md-2 mb-2">
                     <label class="form-label">Tipo doc.</label>
@@ -94,8 +127,8 @@
                     <input class="form-control solo-nums{% if 'cliente_numero_documento' in fe %} is-invalid{% endif %}" name="cliente_numero_documento"
                            inputmode="numeric"
                            value="{{ val('cliente_numero_documento') }}" required
-                           data-msg="El número de documento del solicitante es obligatorio.">
-                    <div class="invalid-feedback">{{ fe.get('cliente_numero_documento') or 'El número de documento del solicitante es obligatorio.' }}</div>
+                           data-msg="La cédula del titular es obligatoria.">
+                    <div class="invalid-feedback">{{ fe.get('cliente_numero_documento') or 'La cédula del titular es obligatoria.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Teléfono{{ req_star('cliente_telefono') }}</label>
@@ -169,24 +202,18 @@
                     <div class="invalid-feedback" id="errNacimiento">{{ fe.get('fallecido_fecha_nacimiento') or 'Este campo es obligatorio.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Fecha de fallecimiento <span class="text-danger">*</span></label>
+                    <label class="form-label">Fecha de fallecimiento</label>
                     <input class="form-control{% if 'fallecido_fecha_fallecimiento' in fe %} is-invalid{% endif %}" type="date" name="fallecido_fecha_fallecimiento"
                            id="fechaFallecimiento"
                            max="{{ today }}"
-                           value="{{ val('fallecido_fecha_fallecimiento') }}" required
-                           data-msg="La fecha de fallecimiento es obligatoria y no puede ser futura.">
-                    <div class="invalid-feedback" id="errFallecimiento">{{ fe.get('fallecido_fecha_fallecimiento') or 'La fecha de fallecimiento es obligatoria y no puede ser futura.' }}</div>
+                           value="{{ val('fallecido_fecha_fallecimiento') }}">
+                    <div class="invalid-feedback" id="errFallecimiento">{{ fe.get('fallecido_fecha_fallecimiento') or 'La fecha de fallecimiento no puede ser futura.' }}</div>
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Lugar de fallecimiento{{ req_star('fallecido_lugar_fallecimiento') }}</label>
                     <input class="form-control{% if 'fallecido_lugar_fallecimiento' in fe %} is-invalid{% endif %}" name="fallecido_lugar_fallecimiento"
                            value="{{ val('fallecido_lugar_fallecimiento') }}" {{ req_attr('fallecido_lugar_fallecimiento') }}>
                     <div class="invalid-feedback">{{ fe.get('fallecido_lugar_fallecimiento') or 'Este campo es obligatorio.' }}</div>
-                </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label">Fecha de afiliación</label>
-                    <input class="form-control" type="date" name="fecha_afiliacion"
-                           value="{{ val('fecha_afiliacion') }}">
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Causa de fallecimiento{{ req_star('fallecido_causa_fallecimiento') }}</label>
@@ -204,62 +231,33 @@
         </div>
     </div>
 
-    {# ── Servicios utilizados ── #}
+    {# ── Servicios prestados ── #}
     <div class="card mb-3">
         <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
-            Servicios utilizados
+            Servicios prestados
             <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddSvc">
-                <i class="bi bi-plus-lg me-1"></i>Agregar ítem
+                <i class="bi bi-plus-lg me-1"></i>Agregar servicio
             </button>
         </div>
         <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-7 mb-2">
-                    <label class="form-label">Tipo de servicio</label>
-                    <select class="form-select" name="nombre_servicio" id="selectServicio">
-                        <option value="">-- Seleccionar --</option>
-                        <optgroup label="RECORDAR" class="opts-recordar">
-                            {% for s in ["SERVICIO FUNERARIO CON TRANSPORTE, VELACIÓN Y MISA","SERVICIO FUNERARIO CON TRANSPORTE Y VELACIÓN","SERVICIO FUNERARIO"] %}
-                            <option value="{{ s }}" class="opt-recordar" {% if val('nombre_servicio') == s %}selected{% endif %}>{{ s }}</option>
-                            {% endfor %}
-                        </optgroup>
-                        <optgroup label="PARQUES Y FUNERARIAS" class="opts-pyf">
-                            {% for s in ["SERVICIO FUNERARIO CREMACIÓN","SERVICIO FUNERARIO GRAN EXTRA","SERVICIO FUNERARIO ESTILO J","SERVICIO FUNERARIO ESTILO K","SERVICIO FUNERARIO ESTILO L","SERVICIO FUNERARIO ESTÁNDAR"] %}
-                            <option value="{{ s }}" class="opt-pyf" {% if val('nombre_servicio') == s %}selected{% endif %}>{{ s }}</option>
-                            {% endfor %}
-                        </optgroup>
-                    </select>
-                </div>
-                <div class="col-md-5 mb-2 d-flex align-items-end gap-2">
-                    <button type="button" class="btn btn-outline-secondary" id="btnCargarPlantilla" disabled>
-                        <i class="bi bi-cloud-download me-1"></i>Cargar ítems de plantilla
-                    </button>
-                    <span id="msgPlantilla" class="form-text"></span>
-                </div>
-                <div class="col-12">
-                    <div class="form-text text-muted">
-                        Selecciona empresa + tipo de servicio e ingresa el valor total, luego haz clic en
-                        <strong>Cargar ítems de plantilla</strong> para auto-completar el desglose.
-                        También puedes agregar ítems manualmente con el botón de arriba.
-                    </div>
-                </div>
+            <div class="form-text mb-2">
+                Escoge el servicio e ingresa su valor. Los servicios con desglose se reparten
+                automáticamente por porcentajes; <strong>OTROS</strong> y los demás ítems no se desglosan.
             </div>
+            {% if 'servicios' in fe %}
+            <div class="alert alert-danger py-2 small">{{ fe.get('servicios') }}</div>
+            {% endif %}
 
-            {# Dynamic service line items — initialized via JS with cert_servicios data #}
             <div id="svcsContainer" class="mb-2"
                  data-initial="{{ cert_servicios | tojson | e }}"></div>
             <div id="svcsEmpty" class="text-muted small mb-2">
-                Sin ítems manuales — se usará la plantilla automática según empresa/tipo de servicio.
+                Aún no hay servicios. Selecciona la empresa y pulsa <strong>Agregar servicio</strong>.
             </div>
 
-            <div class="row mt-2">
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Valor total (COP)</label>
-                    <input class="form-control" type="number" min="0" name="valor_total" id="valorTotal"
-                           placeholder="Ej: 18240000"
-                           value="{{ val('valor_total') }}">
-                    <div class="form-text" id="valorTotalNote">Se suma automáticamente de los ítems cuando los hay.</div>
-                </div>
+            <div class="d-flex flex-wrap justify-content-end align-items-baseline gap-3 border-top pt-2">
+                <span id="destinoFinal" class="fst-italic text-muted"></span>
+                <span class="fw-semibold">Valor total:</span>
+                <span class="fs-5 fw-bold" id="valorTotalTxt">$ 0</span>
             </div>
         </div>
     </div>
@@ -279,12 +277,6 @@
                     <input class="form-control" name="numero_contrato"
                            placeholder="Ej: BQ026S000001431036"
                            value="{{ val('numero_contrato') }}">
-                </div>
-                <div class="col-md-4 mb-2">
-                    <label class="form-label">N.º Factura</label>
-                    <input class="form-control" name="numero_factura"
-                           placeholder="Ej: PC124123"
-                           value="{{ val('numero_factura') }}">
                 </div>
                 <div class="col-md-4 mb-2">
                     <label class="form-label">Plan o póliza</label>

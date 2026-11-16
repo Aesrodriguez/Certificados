@@ -79,7 +79,17 @@
           Pendientes de revisión
           {% if pending_count is defined and pending_count %}
           <span class="sidebar-badge">{{ pending_count }}</span>
-          {% endif %}
+          <a href="/reportes"
+           class="sidebar-link {% if request.url.path.startswith('/reportes') %}active{% endif %}">
+          <i class="bi bi-bar-chart-fill"></i>
+          Reportes
+        </a>
+        {% endif %}
+        </a>
+        <a href="/reportes"
+           class="sidebar-link {% if request.url.path.startswith('/reportes') %}active{% endif %}">
+          <i class="bi bi-bar-chart-fill"></i>
+          Reportes
         </a>
         {% endif %}
 
