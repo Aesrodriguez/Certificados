@@ -4,6 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
+from sqlalchemy.engine import make_url
+
+# Local Postgres (e.g. Docker) has no SSL; Neon requires it.
+_IS_LOCAL_DB = make_url(settings.DATABASE_URL).host in ("localhost", "127.0.0.1")
 
 # Neon's runtime endpoint is PgBouncer in transaction-pooling mode. asyncpg
 # already defaults to *anonymous* prepared statements (name=None), which is
@@ -19,7 +23,7 @@ engine = create_async_engine(
     settings.DATABASE_URL,
     poolclass=NullPool,
     connect_args={
-        "ssl": "require",
+        "ssl": False if _IS_LOCAL_DB else "require",
         "statement_cache_size": 0,
         "prepared_statement_cache_size": 0,
     },
