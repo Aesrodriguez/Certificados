@@ -4,11 +4,13 @@
 <h1 class="h4 mb-3">{% if cert %}Editar solicitud{% else %}Nueva solicitud de certificado{% endif %}</h1>
 
 {# Macro para leer valor de cert (ORM o dict) #}
+{# Campos vacíos (None) se muestran en blanco, nunca como el texto "None" #}
 {% macro val(field, default='') %}
-  {%- if cert is none -%}{{ default }}
-  {%- elif cert is mapping -%}{{ cert.get(field, default) }}
-  {%- else -%}{{ cert[field] if cert[field] is defined else (cert | attr(field)) }}
+  {%- if cert is none -%}{%- set v = default -%}
+  {%- elif cert is mapping -%}{%- set v = cert.get(field, default) -%}
+  {%- else -%}{%- set v = cert | attr(field) -%}
   {%- endif -%}
+  {{- default if v is none else v -}}
 {% endmacro %}
 
 {# required_fields viene del contexto del router; si no existe, ningún campo configurable es obligatorio #}
