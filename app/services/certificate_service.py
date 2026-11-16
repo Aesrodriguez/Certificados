@@ -117,7 +117,9 @@ async def update_draft(
     ip_address: str | None,
 ) -> None:
     assert_can_edit(cert, asesor)
-    for field, value in data.model_dump().items():
+    # exclude_unset: solo campos enviados en el formulario. Así no se borran datos que el
+    # formulario no muestra (p. ej. numero_aviso / descripcion_servicio importados del Excel).
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(cert, field, value)
     await log_action(
         db,
@@ -196,18 +198,13 @@ async def send_certificate_email(
     signer_nombre = settings.FIRMA_NOMBRE.strip() or "Administrador de Ciudad"
     signer_cargo = settings.FIRMA_CARGO.strip() or "Administrador de Ciudad"
 
-    lineas_servicio = None
-    if cert.valor_total:
-        lineas_servicio = await servicio_service.get_lineas_for_cert(
-            db, cert.empresa, cert.nombre_servicio, cert.valor_total,
-            servicios_json=cert.servicios_json,
-        )
-
+    grupos, destino = await servicio_service.build_desglose(db, cert)
     pdf_bytes = pdf_service.build_certificate_pdf(
         cert,
         signer_name=signer_nombre,
         signer_cargo=signer_cargo,
-        lineas_servicio=lineas_servicio,
+        grupos=grupos,
+        destino=destino,
     )
     await log_action(
         db,

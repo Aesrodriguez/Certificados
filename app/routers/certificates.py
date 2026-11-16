@@ -1,12 +1,13 @@
 import re
 import uuid
-from datetime import date
+from markupsafe import Markup
 
 import pydantic
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import catalogo
 from app.core.config import settings
 from app.core.security import generate_csrf_token
 from app.core.templating import templates
@@ -20,7 +21,16 @@ from app.models.user import RoleEnum
 from app.schemas.certificate_request import CertificateRequestIn
 from app.services import appsetting_service, certificate_service, pdf_service, servicio_service
 from app.services.audit_service import log_action
-from app.services.pdf_service import _numero_a_palabras, _MESES, encrypt_pdf
+from app.services.pdf_service import (
+    _MESES,
+    _numero_a_palabras,
+    cuerpo_html,
+    encrypt_pdf,
+    fecha_elaboracion,
+    fecha_firma,
+    lleva_sello_cancelado,
+    pdf_password,
+)
 
 router = APIRouter(
     prefix="/certificates",
@@ -29,19 +39,104 @@ router = APIRouter(
 
 
 def _parse_servicios(form) -> list | None:
-    nombres = form.getlist("svc_nombre")
+    """Ítems de servicio del formulario: [{servicio, nombre, valor}, ...]."""
+    servicios = form.getlist("svc_servicio")
+    descs = form.getlist("svc_desc")
     valores = form.getlist("svc_valor")
-    lineas = []
-    for nom, val_str in zip(nombres[:50], valores[:50]):  # hard cap: 50 items
-        nom = nom.strip()[:300]
-        if not nom:
+    items = []
+    for idx, servicio in enumerate(servicios[:50]):  # hard cap: 50 items
+        servicio = servicio.strip()[:300]
+        if not servicio:
             continue
+        desc = (descs[idx] if idx < len(descs) else "").strip()[:300]
         try:
-            val = max(0, min(int(val_str or 0), 100_000_000))
+            val = max(0, min(int(valores[idx] if idx < len(valores) else 0), 2_000_000_000))
         except (ValueError, TypeError):
             val = 0
-        lineas.append({"nombre": nom, "valor": val})
-    return lineas or None
+        nombre = desc if (servicio == catalogo.OTROS and desc) else servicio
+        items.append({"servicio": servicio, "nombre": nombre, "valor": val})
+    return items or None
+
+
+def _leer_formulario(form) -> dict:
+    form_dict = dict(form)
+    items = _parse_servicios(form)
+    form_dict["servicios_json"] = items
+    if items:
+        form_dict["valor_total"] = sum(i["valor"] for i in items)
+        form_dict["nombre_servicio"] = items[0]["servicio"][:255]
+    else:
+        form_dict["valor_total"] = None
+        form_dict["nombre_servicio"] = None
+    return form_dict
+
+
+def _items_para_form(cert) -> list[dict]:
+    """Convierte lo guardado (formato nuevo, antiguo o solo nombre_servicio) en filas del formulario."""
+    if cert is None:
+        return []
+    get = cert.get if isinstance(cert, dict) else (lambda k, d=None: getattr(cert, k, d))
+    sj = [i for i in (get("servicios_json") or []) if isinstance(i, dict)]
+    if any(i.get("servicio") for i in sj):
+        return [
+            {
+                "servicio": i.get("servicio") or catalogo.OTROS,
+                "desc": i.get("nombre", "") if i.get("servicio") == catalogo.OTROS else "",
+                "valor": i.get("valor", 0),
+            }
+            for i in sj
+        ]
+    if sj:  # líneas manuales de certificados antiguos
+        return [{"servicio": catalogo.OTROS, "desc": i.get("nombre", ""), "valor": i.get("valor", 0)} for i in sj]
+    if get("nombre_servicio"):
+        return [{"servicio": get("nombre_servicio"), "desc": "", "valor": get("valor_total") or 0}]
+    return []
+
+
+def _check_por_tipo(form_dict: dict) -> dict[str, str]:
+    """Campos que exige el documento según la empresa y el tipo de certificado."""
+    errors: dict[str, str] = {}
+
+    def falta(campo: str, msg: str) -> None:
+        v = form_dict.get(campo)
+        if v is None or (isinstance(v, str) and not v.strip()):
+            errors[campo] = msg
+
+    falta("empresa", "Selecciona la empresa.")
+    falta("tipo_certificado", "Selecciona el tipo de documento.")
+    tipo = form_dict.get("tipo_certificado")
+    if tipo in catalogo.TIPOS_GASTOS:
+        falta("fecha_servicio", "La fecha del servicio es obligatoria.")
+        falta("fecha_solicitud_documento", "La fecha de solicitud es obligatoria.")
+        if not form_dict.get("servicios_json"):
+            errors["servicios"] = "Agrega al menos un servicio prestado con su valor."
+    if tipo == catalogo.TIPO_FACTURA:
+        falta("numero_factura", "El número de factura es obligatorio.")
+    if tipo == catalogo.TIPO_SERVICIOS:
+        falta("fecha_afiliacion", "La fecha de afiliación es obligatoria.")
+    return errors
+
+
+def _form_ctx(session: DbSession, *, cert, field_errors, required_fields, form_action) -> dict:
+    return _ctx(
+        session,
+        cert=cert,
+        cert_servicios=_items_para_form(cert),
+        field_errors=field_errors,
+        required_fields=required_fields,
+        form_action=form_action,
+        empresas=catalogo.EMPRESAS,
+        tipos_por_empresa=catalogo.TIPOS_POR_EMPRESA,
+        servicios_por_empresa=catalogo.SERVICIOS_POR_EMPRESA,
+        servicios_desglosados={
+            emp: [x for x in svcs if catalogo.discrimina(emp, x)]
+            for emp, svcs in catalogo.SERVICIOS_POR_EMPRESA.items()
+        },
+        otros=catalogo.OTROS,
+        tipos_gastos=sorted(catalogo.TIPOS_GASTOS),
+        tipo_factura=catalogo.TIPO_FACTURA,
+        tipo_servicios=catalogo.TIPO_SERVICIOS,
+    )
 
 
 def _ip(request: Request) -> str | None:
@@ -127,8 +222,8 @@ async def new_certificate_form(
     return templates.TemplateResponse(
         request,
         "certificates/form.html",
-        _ctx(session, cert=None, cert_servicios=[], field_errors={},
-             required_fields=required_fields, form_action="/certificates"),
+        _form_ctx(session, cert=None, field_errors={},
+                  required_fields=required_fields, form_action="/certificates"),
     )
 
 
@@ -139,11 +234,11 @@ async def create_certificate(
     session: DbSession = Depends(get_current_session),
 ):
     form = await request.form()
-    form_dict = dict(form)
-    form_dict["servicios_json"] = _parse_servicios(form)
+    form_dict = _leer_formulario(form)
 
     required_fields = await appsetting_service.get_required_fields(db)
     all_errors: dict[str, str] = _check_required(form_dict, required_fields)
+    all_errors.update(_check_por_tipo(form_dict))
     data = None
     try:
         data = CertificateRequestIn.model_validate(form_dict)
@@ -154,10 +249,9 @@ async def create_certificate(
         return templates.TemplateResponse(
             request,
             "certificates/form.html",
-            _ctx(
+            _form_ctx(
                 session,
                 cert=form_dict,
-                cert_servicios=form_dict.get("servicios_json") or [],
                 field_errors=all_errors,
                 required_fields=required_fields,
                 form_action="/certificates",
@@ -273,8 +367,8 @@ async def edit_certificate_form(
     return templates.TemplateResponse(
         request,
         "certificates/form.html",
-        _ctx(session, cert=cert, cert_servicios=cert.servicios_json or [], field_errors={},
-             required_fields=required_fields, form_action=f"/certificates/{cert.id}"),
+        _form_ctx(session, cert=cert, field_errors={},
+                  required_fields=required_fields, form_action=f"/certificates/{cert.id}"),
     )
 
 
@@ -292,11 +386,11 @@ async def update_certificate(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     form = await request.form()
-    form_dict = dict(form)
-    form_dict["servicios_json"] = _parse_servicios(form)
+    form_dict = _leer_formulario(form)
 
     required_fields = await appsetting_service.get_required_fields(db)
     all_errors: dict[str, str] = _check_required(form_dict, required_fields)
+    all_errors.update(_check_por_tipo(form_dict))
     data = None
     try:
         data = CertificateRequestIn.model_validate(form_dict)
@@ -307,10 +401,9 @@ async def update_certificate(
         return templates.TemplateResponse(
             request,
             "certificates/form.html",
-            _ctx(
+            _form_ctx(
                 session,
                 cert=form_dict,
-                cert_servicios=form_dict.get("servicios_json") or [],
                 field_errors=all_errors,
                 required_fields=required_fields,
                 form_action=f"/certificates/{cert_id}",
@@ -467,24 +560,9 @@ async def preview_certificate(
     can_edit = (is_admin or cert.asesor_id == session.user.id) and cert.status in certificate_service.EDITABLE_STATUSES
     can_review = session.user.role in (RoleEnum.REVISOR, RoleEnum.ADMIN) and cert.status.value == "pending"
 
-    issue_date_obj = cert.reviewed_at.date() if cert.reviewed_at else date.today()
-    entry_date = cert.created_at.strftime("%d/%m/%Y") if cert.created_at else issue_date_obj.strftime("%d/%m/%Y")
+    issue_date_obj = fecha_elaboracion(cert)
     total_palabras = _numero_a_palabras(cert.valor_total) if cert.valor_total else ""
-    lineas_servicio = (
-        await servicio_service.get_lineas_for_cert(
-            db, cert.empresa, cert.nombre_servicio, cert.valor_total,
-            servicios_json=cert.servicios_json,
-        )
-        if cert.valor_total
-        else []
-    )
-
-    fallecimiento_obj = cert.fallecido_fecha_fallecimiento
-    if fallecimiento_obj:
-        issue_fallecimiento = f"{fallecimiento_obj.day} de {_MESES[fallecimiento_obj.month]} de {fallecimiento_obj.year}"
-    else:
-        issue_fallecimiento = "-"
-
+    grupos, destino = await servicio_service.build_desglose(db, cert)
     signer_nombre, signer_cargo = _signer(cert)
 
     return templates.TemplateResponse(
@@ -503,9 +581,11 @@ async def preview_certificate(
             "issue_month": _MESES[issue_date_obj.month],
             "issue_year": issue_date_obj.year,
             "issue_date": issue_date_obj.strftime("%d/%m/%Y"),
-            "issue_fallecimiento": issue_fallecimiento,
-            "lineas_servicio": lineas_servicio,
-            "entry_date": entry_date,
+            "cuerpo": Markup(cuerpo_html(cert)),
+            "grupos": grupos,
+            "destino": destino,
+            "fecha_firma": fecha_firma(cert),
+            "sello_cancelado": lleva_sello_cancelado(cert),
         },
     )
 
@@ -531,22 +611,17 @@ async def download_certificate_pdf(
         )
 
     signer_nombre, signer_cargo = _signer(cert)
-    lineas_servicio = (
-        await servicio_service.get_lineas_for_cert(
-            db, cert.empresa, cert.nombre_servicio, cert.valor_total,
-            servicios_json=cert.servicios_json,
-        )
-        if cert.valor_total
-        else None
-    )
+    grupos, destino = await servicio_service.build_desglose(db, cert)
     pdf_bytes = pdf_service.build_certificate_pdf(
         cert,
         signer_name=signer_nombre,
         signer_cargo=signer_cargo,
-        lineas_servicio=lineas_servicio,
+        grupos=grupos,
+        destino=destino,
     )
-    if cert.fallecido_numero_documento:
-        pdf_bytes = encrypt_pdf(pdf_bytes, cert.fallecido_numero_documento)
+    password = pdf_password(cert)
+    if password:
+        pdf_bytes = encrypt_pdf(pdf_bytes, password)
     await log_action(
         db,
         actor_user_id=session.user.id,

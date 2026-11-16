@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Reportes - Clara Certificados{% endblock %}
+{% block content %}
+{% macro cop(n) %}$ {{ "{:,}".format(n or 0).replace(",", ".") }}{% endmacro %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="h4 m-0">Reportes</h1>
+    <a class="btn btn-outline-success btn-sm" href="/reportes/historial.csv{% if query %}?{{ query }}{% endif %}">
+        <i class="bi bi-filetype-csv me-1"></i>Descargar historial (CSV)
+    </a>
+</div>
+
+<form method="get" class="card card-body mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-sm-6 col-md-2">
+            <label class="form-label small">Desde</label>
+            <input type="date" class="form-control form-control-sm" name="desde" value="{{ filtros.desde or '' }}">
+        </div>
+        <div class="col-sm-6 col-md-2">
+            <label class="form-label small">Hasta</label>
+            <input type="date" class="form-control form-control-sm" name="hasta" value="{{ filtros.hasta or '' }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Empresa</label>
+            <select class="form-select form-select-sm" name="empresa">
+                <option value="">Todas</option>
+                {% for k, label in empresas.items() %}
+                <option value="{{ k }}" {% if filtros.empresa == k %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">Tipo de documento</label>
+            <select class="form-select form-select-sm" name="tipo">
+                <option value="">Todos</option>
+                {% for t in tipos %}
+                <option value="{{ t }}" {% if filtros.tipo == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button class="btn btn-primary btn-sm flex-fill">Filtrar</button>
+            <a href="/reportes" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+        </div>
+    </div>
+    <div class="form-text">Las fechas filtran por el día en que se creó la solicitud.</div>
+</form>
+
+<div class="row g-3 mb-3">
+    {% for label, value in [
+        ("Solicitudes", r.total),
+        ("Aprobadas", r.aprobados),
+        ("Valor certificado (aprobadas)", cop(r.valor_aprobado)),
+        ("PDF descargados", pdfs),
+    ] %}
+    <div class="col-6 col-lg-3">
+        <div class="card h-100"><div class="card-body">
+            <div class="text-muted small">{{ label }}</div>
+            <div class="fs-4 fw-bold">{{ value }}</div>
+        </div></div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Por empresa</div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Empresa</th><th class="text-end">Solicitudes</th><th class="text-end">Aprobadas</th><th class="text-end">Valor</th></tr></thead>
+                <tbody>
+                {% for k, d in r.por_empresa %}
+                <tr><td>{{ k }}</td><td class="text-end">{{ d.total }}</td><td class="text-end">{{ d.aprobados }}</td><td class="text-end text-nowrap">{{ cop(d.valor) }}</td></tr>
+                {% else %}<tr><td colspan="4" class="text-muted">Sin datos</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Por tipo de documento</div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Tipo</th><th class="text-end">Solicitudes</th><th class="text-end">Aprobadas</th><th class="text-end">Valor</th></tr></thead>
+                <tbody>
+                {% for k, d in r.por_tipo %}
+                <tr><td>{{ k }}</td><td class="text-end">{{ d.total }}</td><td class="text-end">{{ d.aprobados }}</td><td class="text-end text-nowrap">{{ cop(d.valor) }}</td></tr>
+                {% else %}<tr><td colspan="4" class="text-muted">Sin datos</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Por mes</div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Mes</th><th class="text-end">Solicitudes</th><th class="text-end">Aprobadas</th><th class="text-end">Valor</th></tr></thead>
+                <tbody>
+                {% for k, d in r.por_mes %}
+                <tr><td>{{ k }}</td><td class="text-end">{{ d.total }}</td><td class="text-end">{{ d.aprobados }}</td><td class="text-end text-nowrap">{{ cop(d.valor) }}</td></tr>
+                {% else %}<tr><td colspan="4" class="text-muted">Sin datos</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Servicios certificados (aprobadas)</div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Servicio</th><th class="text-end">Veces</th><th class="text-end">Valor</th></tr></thead>
+                <tbody>
+                {% for k, d in r.por_servicio %}
+                <tr><td>{{ k }}</td><td class="text-end">{{ d.veces }}</td><td class="text-end text-nowrap">{{ cop(d.valor) }}</td></tr>
+                {% else %}<tr><td colspan="3" class="text-muted">Sin datos</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Por estado</div>
+            <table class="table table-sm mb-0">
+                <tbody>
+                {% for k, n in r.por_estado %}
+                <tr><td>{{ k }}</td><td class="text-end">{{ n }}</td></tr>
+                {% else %}<tr><td class="text-muted">Sin datos</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Por asesor</div>
+            <table class="table table-sm mb-0">
+                <tbody>
+                {% for k, n in r.por_asesor %}
+                <tr><td>{{ k }}</td><td class="text-end">{{ n }}</td></tr>
+                {% else %}<tr><td class="text-muted">Sin datos</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.catalogo import destino_final, discrimina, norm
 from app.models.servicio import Servicio, ServicioLinea
 
 
@@ -97,25 +98,18 @@ async def delete_servicio(db: AsyncSession, svc: Servicio) -> None:
     await db.commit()
 
 
-async def get_lineas_for_cert(
-    db: AsyncSession,
-    empresa: str | None,
-    nombre_servicio: str | None,
-    valor_total: int,
-    servicios_json: list | None = None,
-) -> list[tuple[str, int]]:
-    """DB-backed service breakdown lookup, falls back to hardcoded if no match.
+def _repartir(valor_total: int, plantilla: list[tuple[str, float]]) -> list[tuple[str, int]]:
+    """Aplica porcentajes y corrige el redondeo sobre el ítem de mayor valor."""
+    calculadas = [(nombre, round(valor_total * pct)) for nombre, pct in plantilla]
+    diff = valor_total - sum(v for _, v in calculadas)
+    if diff and calculadas:
+        idx = max(range(len(calculadas)), key=lambda i: calculadas[i][1])
+        nom, val = calculadas[idx]
+        calculadas[idx] = (nom, val + diff)
+    return calculadas
 
-    If servicios_json contains explicit line items they are returned directly
-    without any template lookup.
-    """
-    if servicios_json:
-        result_lines = []
-        for item in servicios_json:
-            if isinstance(item, dict) and "nombre" in item and "valor" in item:
-                result_lines.append((str(item["nombre"]), int(item["valor"])))
-        if result_lines:
-            return result_lines
+
+async def _plantillas_activas(db: AsyncSession) -> list[Servicio]:
     try:
         result = await db.execute(
             select(Servicio)
@@ -123,25 +117,87 @@ async def get_lineas_for_cert(
             .options(selectinload(Servicio.lineas))
             .order_by(Servicio.orden)
         )
-        servicios = list(result.scalars().all())
+        return list(result.scalars().all())
     except Exception:
-        servicios = []
+        return []
 
-    emp = (empresa or "").lower()
-    svc_name = (nombre_servicio or "").lower()
 
-    for svc in servicios:
-        if svc.empresa_key in emp and svc.servicio_key in svc_name:
+def _desglosar(
+    plantillas: list[Servicio], empresa: str | None, servicio: str | None, valor: int
+) -> list[tuple[str, int]]:
+    """Busca la primera plantilla de BD que coincida (sin tildes); si no, la fija del código."""
+    emp = norm(empresa)
+    svc_name = norm(servicio)
+    for svc in plantillas:
+        if norm(svc.empresa_key) in emp and norm(svc.servicio_key) in svc_name:
             lineas_sorted = sorted(svc.lineas, key=lambda l: l.orden_linea)
-            calculadas: list[tuple[str, int]] = [
-                (l.nombre, round(valor_total * l.porcentaje)) for l in lineas_sorted
-            ]
-            diff = valor_total - sum(v for _, v in calculadas)
-            if diff and calculadas:
-                idx = max(range(len(calculadas)), key=lambda i: calculadas[i][1])
-                nom, val = calculadas[idx]
-                calculadas[idx] = (nom, val + diff)
-            return calculadas
+            return _repartir(valor, [(l.nombre, l.porcentaje) for l in lineas_sorted])
 
     from app.services.pdf_service import get_lineas_servicio
-    return get_lineas_servicio(empresa, nombre_servicio, valor_total)
+    return get_lineas_servicio(empresa, servicio, valor)
+
+
+async def get_lineas_for_cert(
+    db: AsyncSession,
+    empresa: str | None,
+    nombre_servicio: str | None,
+    valor_total: int,
+    servicios_json: list | None = None,
+) -> list[tuple[str, int]]:
+    """Desglose plano de un solo servicio (usado por /api/lineas).
+
+    Si servicios_json trae líneas explícitas (formato antiguo) se devuelven tal cual.
+    """
+    if servicios_json:
+        result_lines = [
+            (str(i["nombre"]), int(i["valor"]))
+            for i in servicios_json
+            if isinstance(i, dict) and "nombre" in i and "valor" in i
+        ]
+        if result_lines:
+            return result_lines
+    return _desglosar(await _plantillas_activas(db), empresa, nombre_servicio, valor_total)
+
+
+async def build_desglose(db: AsyncSession, cert) -> tuple[list[dict], str | None]:
+    """Arma los grupos de líneas que van en el certificado y la leyenda de destino final.
+
+    Cada grupo: {"titulo": str | None, "valor": int, "lineas": [(nombre, valor), ...]}.
+    `titulo` solo se llena cuando hay varios ítems, para que se vea a qué servicio
+    pertenece cada desglose; con un único ítem se conserva el formato de siempre.
+
+    Formatos de servicios_json soportados:
+      - Nuevo: [{"servicio", "nombre", "valor"}] — un ítem por servicio seleccionado.
+      - Antiguo: [{"nombre", "valor"}] — líneas ya desglosadas a mano.
+      - Vacío: se desglosa nombre_servicio + valor_total con la plantilla.
+    """
+    items = [i for i in (cert.servicios_json or []) if isinstance(i, dict)]
+    nuevos = [i for i in items if i.get("servicio")]
+    grupos: list[dict] = []
+
+    if nuevos:
+        plantillas = await _plantillas_activas(db)
+        for it in nuevos:
+            servicio = str(it.get("servicio") or "")
+            nombre = str(it.get("nombre") or servicio)
+            valor = int(it.get("valor") or 0)
+            if discrimina(cert.empresa, servicio) and valor > 0:
+                lineas = _desglosar(plantillas, cert.empresa, servicio, valor)
+                grupos.append({"titulo": nombre, "valor": valor, "lineas": lineas})
+            else:
+                grupos.append({"titulo": None, "valor": valor, "lineas": [(nombre, valor)]})
+        destino = destino_final([str(i.get("servicio") or "") for i in nuevos])
+    elif items:
+        lineas = [(str(i["nombre"]), int(i["valor"])) for i in items if "nombre" in i and "valor" in i]
+        grupos.append({"titulo": None, "valor": sum(v for _, v in lineas), "lineas": lineas})
+        destino = destino_final([cert.nombre_servicio or ""])
+    elif cert.valor_total:
+        lineas = _desglosar(await _plantillas_activas(db), cert.empresa, cert.nombre_servicio, cert.valor_total)
+        grupos.append({"titulo": None, "valor": cert.valor_total, "lineas": lineas})
+        destino = destino_final([cert.nombre_servicio or ""])
+    else:
+        destino = destino_final([cert.nombre_servicio or ""])
+
+    if len(grupos) == 1:
+        grupos[0]["titulo"] = None
+    return grupos, destino
