@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Clara Certificados{% endblock %}</title>
-  <link href="/static/css/bootstrap.min.css" rel="stylesheet">
-  <link href="/static/css/bootstrap-icons.min.css" rel="stylesheet">
-  <link href="/static/css/custom.css" rel="stylesheet">
+  <link href="{{ static('css/bootstrap.min.css') }}" rel="stylesheet">
+  <link href="{{ static('css/bootstrap-icons.min.css') }}" rel="stylesheet">
+  <link href="{{ static('css/custom.css') }}" rel="stylesheet">
 </head>
 <body>
 
@@ -181,9 +181,9 @@
   <span style="color:#fff; font-size:14px; font-weight:600; letter-spacing:.3px;">Procesando…</span>
 </div>
 
-<script src="/static/js/bootstrap.bundle.min.js"></script>
-<script src="/static/js/confirm-actions.js"></script>
-<script src="/static/js/app-global.js"></script>
+<script src="{{ static('js/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ static('js/confirm-actions.js') }}"></script>
+<script src="{{ static('js/app-global.js') }}"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
