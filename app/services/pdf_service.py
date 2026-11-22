@@ -7,10 +7,12 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
     Image,
+    KeepInFrame,
     PageTemplate,
     Paragraph,
     Spacer,
@@ -37,8 +39,8 @@ _RIGHT_MARGIN  = 2.5 * cm
 # ── Styles ────────────────────────────────────────────────────────────────────
 _styles = getSampleStyleSheet()
 
-_cert_num = ParagraphStyle("CertNum",   parent=_styles["Normal"], fontSize=9,
-                           textColor=colors.HexColor("#555555"), spaceAfter=6)
+_cert_num = ParagraphStyle("CertNum",   parent=_styles["Normal"], fontSize=11,
+                           fontName="Helvetica-Bold", spaceAfter=6)
 _heading  = ParagraphStyle("Heading",   parent=_styles["Normal"], fontSize=13,
                            fontName="Helvetica-Bold", spaceBefore=6, spaceAfter=8)
 _body     = ParagraphStyle("Body",      parent=_styles["Normal"], fontSize=10,
@@ -278,21 +280,52 @@ def encrypt_pdf(pdf_bytes: bytes, password: str) -> bytes:
     return out.getvalue()
 
 
-def _draw_letterhead(canvas, doc):
-    """Draw the GRUPO RECORDAR letterhead as full-page background on every page."""
-    canvas.saveState()
-    canvas.drawImage(_LETTERHEAD, 0, 0, width=_PAGE_W, height=_PAGE_H,
-                     preserveAspectRatio=False)
-    canvas.restoreState()
+def _fondo(membrete: bytes | None):
+    """Dibuja la hoja membretada (cargada en Configuración o la de fábrica) de fondo."""
+    origen = ImageReader(io.BytesIO(membrete)) if membrete else _LETTERHEAD
+
+    def _draw(canvas, doc):
+        canvas.saveState()
+        canvas.drawImage(origen, 0, 0, width=_PAGE_W, height=_PAGE_H,
+                         preserveAspectRatio=False)
+        canvas.restoreState()
+
+    return _draw
+
+
+def _imagen(datos: bytes | None, ruta: str, ancho: float, alto_max: float):
+    """Imagen escalada a `ancho` respetando su proporción (sin pasar de `alto_max`)."""
+    fuente = io.BytesIO(datos) if datos else ruta
+    if not datos and not Path(ruta).exists():
+        return None
+    w, h = ImageReader(io.BytesIO(datos) if datos else ruta).getSize()
+    escala = min(ancho / w, alto_max / h)
+    img = Image(fuente, width=w * escala, height=h * escala)
+    img.hAlign = "LEFT"
+    return img
+
+
+def codigo_documento(cert: CertificateRequest) -> str | None:
+    """N.º de documento: BQ-GER-5-1-<consecutivo>-<año>.
+
+    El año es el de creación de la solicitud (cuando se asignó el consecutivo),
+    así el código no cambia después de impreso.
+    """
+    num = (cert.numero_certificado or "").strip()
+    if num:
+        if not num.isdigit():
+            return num  # ya viene con el código completo
+        creado = cert.created_at.astimezone(_TZ) if cert.created_at else datetime.now(_TZ)
+        return f"BQ-GER-5-1-{num}-{creado.year}"
+    if cert.numero_aviso:
+        return f"BQ-GER-5-1-{cert.numero_aviso}-{fecha_elaboracion(cert).year}"
+    return None
 
 
 _TZ = timezone(timedelta(hours=-5), "America/Bogota")  # Colombia no usa horario de verano
-_SELLO_COLOR = colors.HexColor("#b91c1c")
-
-_sello = ParagraphStyle("Sello", parent=_styles["Normal"], fontSize=14, leading=16,
-                        fontName="Helvetica-Bold", textColor=_SELLO_COLOR, alignment=1)
+_SELLO = str(_STATIC / "sello_cancelado.png")
 _sello_fecha = ParagraphStyle("SelloFecha", parent=_styles["Normal"], fontSize=9,
-                              textColor=_SELLO_COLOR, alignment=1, spaceBefore=3)
+                              alignment=1, spaceBefore=3)
 
 
 def fecha_elaboracion(cert: CertificateRequest) -> date:
@@ -374,6 +407,7 @@ def build_certificate_pdf(
     signer_cargo: str = "Administrador de Ciudad",
     grupos: list[dict] | None = None,
     destino: str | None = None,
+    imagenes: dict[str, bytes] | None = None,
 ) -> bytes:
     buffer = io.BytesIO()
 
@@ -393,13 +427,13 @@ def build_certificate_pdf(
     page_template = PageTemplate(
         id="main",
         frames=[frame],
-        onPage=_draw_letterhead,
+        onPage=_fondo((imagenes or {}).get("membrete")),
     )
     doc = BaseDocTemplate(
         buffer,
         pagesize=letter,
         pageTemplates=[page_template],
-        title=f"Certificado {cert.numero_certificado or cert.id}",
+        title=f"Certificado {codigo_documento(cert) or cert.id}",
         leftMargin=_LEFT_MARGIN,
         rightMargin=_RIGHT_MARGIN,
         topMargin=_TOP_MARGIN,
@@ -410,12 +444,7 @@ def build_certificate_pdf(
     content_width = _PAGE_W - _LEFT_MARGIN - _RIGHT_MARGIN
 
     # ── Certificate reference number ──────────────────────────────────────────
-    if cert.numero_aviso:
-        codigo = f"BQ-GER-5-1-{cert.numero_aviso}-{issue.year}"
-    elif cert.numero_certificado:
-        codigo = cert.numero_certificado
-    else:
-        codigo = None
+    codigo = codigo_documento(cert)
     if codigo:
         story.append(Paragraph(html.escape(codigo), _cert_num))
 
@@ -535,27 +564,20 @@ def build_certificate_pdf(
     story.append(Paragraph(footer_text, _footer_p))
 
     # ── Signature block (+ sello de cancelado para RECORDAR) ─────────────────
-    story.append(Spacer(1, 1.0 * cm))
+    imagenes = imagenes or {}
+    story.append(Spacer(1, 0.6 * cm))
     firma: list = []
-    if Path(_SIGNATURE).exists():
-        sig_img = Image(_SIGNATURE, width=5 * cm, height=2 * cm)
-        sig_img.hAlign = "LEFT"
-        firma.append(sig_img)
-    else:
-        firma.append(Spacer(1, 2 * cm))
+    sig_img = _imagen(imagenes.get("firma"), _SIGNATURE, 5 * cm, 2 * cm)
+    firma.append(sig_img or Spacer(1, 2 * cm))
     firma.append(Paragraph(html.escape(signer_name or "Administrador de Ciudad"), _sig_name))
     firma.append(Paragraph(html.escape(signer_cargo or "Administrador de Ciudad"), _sig_role))
     firma.append(Paragraph(fecha_firma(cert), _sig_role))
 
     if lleva_sello_cancelado(cert):
-        caja = Table([[Paragraph("CANCELADO", _sello)]], colWidths=[4.6 * cm])
-        caja.setStyle(TableStyle([
-            ("BOX", (0, 0), (-1, -1), 1.5, _SELLO_COLOR),
-            ("ROUNDEDCORNERS", [6, 6, 6, 6]),
-            ("TOPPADDING", (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ]))
-        sello = [Spacer(1, 0.6 * cm), caja,
+        sello_img = _imagen(imagenes.get("sello_cancelado"), _SELLO, 5 * cm, 2.2 * cm)
+        if sello_img is not None:
+            sello_img.hAlign = "CENTER"
+        sello = [Spacer(1, 0.4 * cm), sello_img or Spacer(1, 1.7 * cm),
                  Paragraph(issue.strftime("%d/%m/%Y"), _sello_fecha)]
         bloque = Table([[firma, sello]], colWidths=[content_width - 6 * cm, 6 * cm])
         bloque.setStyle(TableStyle([
@@ -567,5 +589,7 @@ def build_certificate_pdf(
     else:
         story.extend(firma)
 
-    doc.build(story)
+    # Todo el certificado va en una sola hoja: si el contenido no cabe en el área
+    # útil del membrete, se reduce proporcionalmente en lugar de pasar a otra página.
+    doc.build([KeepInFrame(content_width, _PAGE_H - _TOP_MARGIN - _BOTTOM_MARGIN - 1, story, mode="shrink")])
     return buffer.getvalue()

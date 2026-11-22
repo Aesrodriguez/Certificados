@@ -27,7 +27,6 @@ class CertificateRequestIn(BaseModel):
     # Datos del certificado
     tipo_certificado: str | None = Field(default=None, max_length=100)
     empresa: str | None = Field(default=None, max_length=100)
-    numero_certificado: str | None = Field(default=None, max_length=50)
 
     # Cliente (solicitante)
     cliente_nombre_completo: str = Field(min_length=1, max_length=255)

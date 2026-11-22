@@ -18,12 +18,12 @@
 {% endif %}
 
 {# ── Certificado info ── #}
-{% if cert.tipo_certificado or cert.empresa or cert.numero_certificado or cert.fecha_servicio %}
+{% if cert.tipo_certificado or cert.empresa or cert.numero_certificado or cert.numero_aviso or cert.fecha_servicio %}
 <h2 class="h6 text-muted mt-3">Información del certificado</h2>
 <dl class="row">
     {% if cert.tipo_certificado %}<dt class="col-sm-3">Tipo</dt><dd class="col-sm-9">{{ cert.tipo_certificado }}</dd>{% endif %}
     {% if cert.empresa %}<dt class="col-sm-3">Empresa</dt><dd class="col-sm-9">{{ cert.empresa }}</dd>{% endif %}
-    {% if cert.numero_certificado %}<dt class="col-sm-3">N.º documento</dt><dd class="col-sm-9">{{ cert.numero_certificado }}</dd>{% endif %}
+    {% set codigo = codigo_documento(cert) %}{% if codigo %}<dt class="col-sm-3">N.º documento</dt><dd class="col-sm-9">{{ codigo }}</dd>{% endif %}
     {% if cert.fecha_solicitud_documento %}<dt class="col-sm-3">Fecha de solicitud</dt><dd class="col-sm-9">{{ cert.fecha_solicitud_documento.strftime('%d/%m/%Y') }}</dd>{% endif %}
     {% if cert.fecha_servicio %}<dt class="col-sm-3">Fecha del servicio</dt><dd class="col-sm-9">{{ cert.fecha_servicio.strftime('%d/%m/%Y') }}</dd>{% endif %}
     {% if cert.fecha_afiliacion %}<dt class="col-sm-3">Fecha de afiliación</dt><dd class="col-sm-9">{{ cert.fecha_afiliacion.strftime('%d/%m/%Y') }}</dd>{% endif %}

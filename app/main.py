@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.logging_config import configure_logging
 from app.core.middleware import SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
-from app.routers import admin, audit, auth, certificates, dashboard, reportes, servicios
+from app.routers import admin, audit, auth, certificates, dashboard, marca, reportes, servicios
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ app.include_router(audit.router)
 app.include_router(certificates.router)
 app.include_router(servicios.router)
 app.include_router(reportes.router)
+app.include_router(marca.router)
 
 
 @app.get("/healthz")

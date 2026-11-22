@@ -2,6 +2,7 @@ import io
 import logging
 import uuid
 from datetime import date
+from urllib.parse import urlencode
 
 import xlrd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
@@ -17,7 +18,7 @@ from app.models.audit_log import AuditActionEnum
 from app.models.certificate_request import CertificateRequest
 from app.models.session import Session as DbSession
 from app.models.user import RoleEnum
-from app.services import appsetting_service, user_service
+from app.services import appsetting_service, certificate_service, marca_service, user_service
 from app.services.audit_service import log_action
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -239,6 +240,7 @@ async def configuracion_page(
     db: AsyncSession = Depends(get_db),
     session: DbSession = Depends(get_current_session),
     msg: str | None = Query(None),
+    error: str | None = Query(None),
 ):
     email_enabled = await appsetting_service.get_setting(db, "email_enabled", default="false")
     required_fields = await appsetting_service.get_required_fields(db)
@@ -250,6 +252,12 @@ async def configuracion_page(
             required_fields=required_fields,
             configurable_fields=appsetting_service.CONFIGURABLE_FIELDS,
             msg=msg,
+            error=error,
+            ranuras=marca_service.RANURAS,
+            imagenes=await marca_service.guardadas(db),
+            imagen_urls=await marca_service.urls(db),
+            proximo_consecutivo=await certificate_service.proximo_consecutivo(db),
+            anio_actual=date.today().year,
         ),
     )
 
@@ -266,6 +274,41 @@ async def configuracion_save(
     req_fields = list(form.getlist("req_field"))
     await appsetting_service.set_required_fields(db, req_fields)
     return RedirectResponse(url="/admin/configuracion?msg=Configuración+guardada.", status_code=303)
+
+
+@router.post("/configuracion/imagen/{clave}", dependencies=[Depends(verify_csrf)])
+async def configuracion_imagen(
+    clave: str,
+    archivo: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    r = marca_service.ranura(clave)
+    if r is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    datos = await archivo.read(marca_service.MAX_BYTES + 1)
+    try:
+        await marca_service.guardar(db, clave, datos, archivo.filename or "")
+    except marca_service.ImagenInvalida as exc:
+        return RedirectResponse(
+            url=f"/admin/configuracion?{urlencode({'error': f'{r.titulo}: {exc}'})}#imagenes",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/admin/configuracion?{urlencode({'msg': f'{r.titulo} actualizado.'})}#imagenes",
+        status_code=303,
+    )
+
+
+@router.post("/configuracion/imagen/{clave}/restablecer", dependencies=[Depends(verify_csrf)])
+async def configuracion_imagen_restablecer(clave: str, db: AsyncSession = Depends(get_db)):
+    r = marca_service.ranura(clave)
+    if r is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    await marca_service.restablecer(db, clave)
+    return RedirectResponse(
+        url=f"/admin/configuracion?{urlencode({'msg': f'{r.titulo}: se restableció la imagen original.'})}#imagenes",
+        status_code=303,
+    )
 
 
 # ── Importar Excel ─────────────────────────────────────────────────────────────

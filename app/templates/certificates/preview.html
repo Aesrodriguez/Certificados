@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Certificado — {{ cert.numero_certificado or "" }}</title>
+    <title>Certificado — {{ codigo or "" }}</title>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -87,7 +87,7 @@
         .page {
             position: relative;
             width: 21.59cm;
-            min-height: 27.94cm;
+            height: 27.94cm; /* siempre una sola hoja carta */
             margin: 0 auto;
             background: #fff;
             box-shadow: 0 4px 24px rgba(0,0,0,.25);
@@ -109,25 +109,27 @@
             z-index: 1;
             /* Match PDF margins: 4.5cm top, 3.2cm bottom, 3cm left, 2.5cm right */
             padding: 4.5cm 2.5cm 3.5cm 3cm;
-            min-height: 27.94cm;
+            /* Tamaño base; preview.js lo reduce si el contenido no cabe en una hoja.
+               Todos los tamaños de texto de abajo están en em, relativos a este. */
+            font-size: 11pt;
         }
 
         /* ── Certificate typography ── */
         .cert-number {
-            font-size: 9pt;
-            color: #555;
-            margin-bottom: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            margin-bottom: 0.8em;
         }
         .cert-certificamos {
-            font-size: 13pt;
+            font-size: 1.182em;
             font-weight: bold;
             margin-bottom: 10px;
         }
         .cert-body {
-            font-size: 11pt;
-            line-height: 1.65;
+            font-size: 1.000em;
+            line-height: 1.5;
             text-align: justify;
-            margin-bottom: 14px;
+            margin-bottom: 1em;
         }
         .svc-table {
             width: 100%;
@@ -135,36 +137,36 @@
             margin-bottom: 2px;
         }
         .svc-table th {
-            font-size: 10pt;
+            font-size: 0.909em;
             font-weight: bold;
             border-top: 0.5pt solid #000;
             border-bottom: 0.5pt solid #000;
             padding: 4px 0;
         }
         .svc-table td {
-            font-size: 10pt;
-            padding: 4px 0;
+            font-size: 0.909em;
+            padding: 0.15em 0;
         }
         .svc-table .val-col { text-align: right; width: 4cm; }
-        .svc-desc { font-size: 9pt; color: #333; margin-bottom: 4px; }
+        .svc-desc { font-size: 0.818em; color: #333; margin-bottom: 4px; }
         .svc-rule { border: none; border-top: 0.5pt solid #000; margin: 2px 0 6px; }
         .cert-total {
-            font-size: 10pt;
+            font-size: 0.909em;
             font-weight: bold;
             margin-bottom: 10px;
         }
         .cert-iva {
-            font-size: 8pt;
+            font-size: 0.727em;
             color: #444;
             line-height: 1.5;
             text-align: justify;
             margin-bottom: 12px;
         }
         .cert-footer {
-            font-size: 10pt;
-            line-height: 1.65;
+            font-size: 0.909em;
+            line-height: 1.5;
             text-align: justify;
-            margin-bottom: 24px;
+            margin-bottom: 1em;
         }
         .signature-block { margin-top: 10px; }
         .signature-block img {
@@ -175,15 +177,11 @@
             margin-bottom: 2px;
         }
         .signature-row { display: flex; justify-content: space-between; align-items: flex-start; }
-        .sello { width: 6cm; text-align: center; color: #b91c1c; padding-top: 0.6cm; }
-        .sello-caja {
-            border: 1.5pt solid #b91c1c; border-radius: 6px;
-            padding: 8px 0; font: bold 14pt Helvetica, Arial, sans-serif;
-            width: 4.6cm; margin: 0 auto;
-        }
-        .sello-fecha { font-size: 9pt; margin-top: 3px; }
-        .sig-name { font-size: 10pt; font-weight: bold; margin-bottom: 1px; }
-        .sig-role { font-size: 9pt; }
+        .sello { width: 6cm; text-align: center; padding-top: 0.4cm; }
+        .sello img { display: block; width: 5cm; max-height: 2.2cm; object-fit: contain; margin: 0 auto; }
+        .sello-fecha { font-size: 0.818em; margin-top: 3px; }
+        .sig-name { font-size: 0.909em; font-weight: bold; margin-bottom: 1px; }
+        .sig-role { font-size: 0.818em; }
 
         /* ── Print styles ───────────────────────────────────────── */
         @media print {
@@ -191,10 +189,9 @@
             .action-bar { display: none !important; }
             .page-wrap { padding: 0; }
             .page {
-                width: 100%;
-                min-height: 100vh;
                 margin: 0;
                 box-shadow: none;
+                break-inside: avoid;
             }
             @page { margin: 0; size: letter; }
         }
@@ -249,14 +246,12 @@
 <!-- ── Certificate page ── -->
 <div class="page-wrap">
 <div class="page">
-    <img class="page-letterhead" src="/static/img/letterhead.jpg" alt="">
+    <img class="page-letterhead" src="{{ img.membrete }}" alt="">
 
     <div class="cert-content">
 
-        {% if cert.numero_aviso %}
-        <div class="cert-number">BQ-GER-5-1-{{ cert.numero_aviso }}-{{ issue_year }}</div>
-        {% elif cert.numero_certificado %}
-        <div class="cert-number">{{ cert.numero_certificado }}</div>
+        {% if codigo %}
+        <div class="cert-number">{{ codigo }}</div>
         {% endif %}
 
         <div class="cert-certificamos">CERTIFICAMOS</div>
@@ -337,14 +332,14 @@
 
         <div class="signature-row">
             <div class="signature-block">
-                <img src="/static/img/signature.png" alt="Firma">
+                <img src="{{ img.firma }}" alt="Firma">
                 <div class="sig-name">{{ asesor_name }}</div>
                 <div class="sig-role">{{ firma_cargo }}</div>
                 <div class="sig-role">{{ fecha_firma }}</div>
             </div>
             {% if sello_cancelado %}
             <div class="sello">
-                <div class="sello-caja">CANCELADO</div>
+                <img src="{{ img.sello_cancelado }}" alt="Sello de caja cancelado">
                 <div class="sello-fecha">{{ issue_date }}</div>
             </div>
             {% endif %}

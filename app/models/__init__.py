@@ -1,6 +1,7 @@
 from app.models.appsetting import AppSetting
 from app.models.audit_log import AuditActionEnum, AuditLog
 from app.models.certificate_request import CertificateRequest, StatusEnum
+from app.models.imagen_marca import ImagenMarca
 from app.models.password_reset_token import PasswordResetToken
 from app.models.servicio import Servicio, ServicioLinea
 from app.models.session import Session
@@ -18,4 +19,5 @@ __all__ = [
     "Servicio",
     "ServicioLinea",
     "AppSetting",
+    "ImagenMarca",
 ]
