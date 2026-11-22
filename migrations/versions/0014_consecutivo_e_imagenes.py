@@ -23,7 +23,7 @@ def upgrade() -> None:
     bind = op.get_bind()
     mayor = bind.execute(sa.text(
         "SELECT max(numero_certificado::bigint) FROM certificate_requests "
-        "WHERE numero_certificado ~ '^[0-9]{1,15}$'"
+        "WHERE numero_certificado ~ '^[0-9]{1,7}$'"
     )).scalar()
     inicio = max(INICIO, (mayor or 0) + 1)
     op.execute(f"CREATE SEQUENCE IF NOT EXISTS consecutivo_certificado_seq START WITH {inicio}")
