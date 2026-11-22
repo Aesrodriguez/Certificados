@@ -8,6 +8,9 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.pdfmetrics import registerFontFamily, stringWidth
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
@@ -32,34 +35,47 @@ _SIGNATURE = str(_STATIC / "signature.png")
 # Letterhead has: header ~4.5 cm (logo + green curves), footer ~3 cm
 _PAGE_W, _PAGE_H = letter
 _TOP_MARGIN    = 4.5 * cm
-_BOTTOM_MARGIN = 3.2 * cm
+_BOTTOM_MARGIN = 3.5 * cm
 _LEFT_MARGIN   = 3.0 * cm
 _RIGHT_MARGIN  = 2.5 * cm
 
 # ── Styles ────────────────────────────────────────────────────────────────────
 _styles = getSampleStyleSheet()
 
-_cert_num = ParagraphStyle("CertNum",   parent=_styles["Normal"], fontSize=11,
-                           fontName="Helvetica-Bold", spaceAfter=6)
-_heading  = ParagraphStyle("Heading",   parent=_styles["Normal"], fontSize=13,
-                           fontName="Helvetica-Bold", spaceBefore=6, spaceAfter=8)
-_body     = ParagraphStyle("Body",      parent=_styles["Normal"], fontSize=10,
-                           leading=16, spaceAfter=10, alignment=4)  # justified
-_svc_bold = ParagraphStyle("SvcBold",  parent=_styles["Normal"], fontSize=10,
-                           fontName="Helvetica-Bold")
-_svc_r    = ParagraphStyle("SvcRight", parent=_styles["Normal"], fontSize=10,
-                           fontName="Helvetica-Bold", alignment=2)
-_total    = ParagraphStyle("Total",    parent=_styles["Normal"], fontSize=10,
-                           fontName="Helvetica-Bold", spaceBefore=4, spaceAfter=8)
-_iva      = ParagraphStyle("IVA",      parent=_styles["Normal"], fontSize=8,
-                           textColor=colors.HexColor("#444444"), leading=11,
-                           spaceAfter=10, alignment=4)
-_footer_p = ParagraphStyle("FooterP",  parent=_styles["Normal"], fontSize=10,
-                           leading=14, spaceAfter=4, alignment=4)
-_sig_name = ParagraphStyle("SigName",  parent=_styles["Normal"], fontSize=10,
-                           fontName="Helvetica-Bold", spaceAfter=1)
-_sig_role = ParagraphStyle("SigRole",  parent=_styles["Normal"], fontSize=9,
-                           spaceAfter=1)
+# Mismo aspecto que la vista previa impresa (preview.html): Times New Roman,
+# base 11 pt y los mismos tamaños y espacios.
+# Liberation Serif: mismas medidas que Times New Roman, incrustada en el PDF para que
+# la negrilla y el tamaño se vean igual en cualquier visor (licencia en static/fonts).
+_FUENTES = Path(__file__).resolve().parent.parent / "static" / "fonts"
+try:
+    pdfmetrics.registerFont(TTFont("CertSerif", str(_FUENTES / "LiberationSerif-Regular.ttf")))
+    pdfmetrics.registerFont(TTFont("CertSerif-Bold", str(_FUENTES / "LiberationSerif-Bold.ttf")))
+    registerFontFamily("CertSerif", normal="CertSerif", bold="CertSerif-Bold",
+                       italic="CertSerif", boldItalic="CertSerif-Bold")
+    _R, _B = "CertSerif", "CertSerif-Bold"
+except Exception:  # sin los archivos de fuente, usa la Times estándar del PDF
+    _R, _B = "Times-Roman", "Times-Bold"
+_N = _styles["Normal"]
+
+_cert_num = ParagraphStyle("CertNum",  parent=_N, fontName=_B, fontSize=11, leading=13, spaceAfter=8.8)
+_heading  = ParagraphStyle("Heading",  parent=_N, fontName=_B, fontSize=13, leading=15, spaceAfter=7.5)
+_body     = ParagraphStyle("Body",     parent=_N, fontName=_R, fontSize=11, leading=16.5,
+                           spaceAfter=11, alignment=4)  # justificado
+_th       = ParagraphStyle("Th",       parent=_N, fontName=_B, fontSize=10, leading=12, alignment=1)
+_th_r     = ParagraphStyle("ThR",      parent=_th, alignment=2)
+_svc      = ParagraphStyle("Svc",      parent=_N, fontName=_R, fontSize=10, leading=11.5)
+_svc_bold = ParagraphStyle("SvcBold",  parent=_svc, fontName=_B)
+_svc_r    = ParagraphStyle("SvcRight", parent=_svc, alignment=2)
+_svc_rb   = ParagraphStyle("SvcRightB", parent=_svc_r, fontName=_B)
+_svc_desc = ParagraphStyle("SvcDesc",  parent=_N, fontName=_R, fontSize=9, leading=11,
+                           textColor=colors.HexColor("#333333"), spaceAfter=3)
+_total    = ParagraphStyle("Total",    parent=_N, fontName=_B, fontSize=10, leading=12, spaceAfter=7.5)
+_iva      = ParagraphStyle("IVA",      parent=_N, fontName=_R, fontSize=8, leading=12,
+                           textColor=colors.HexColor("#444444"), spaceAfter=9, alignment=4)
+_footer_p = ParagraphStyle("FooterP",  parent=_N, fontName=_R, fontSize=10, leading=15,
+                           spaceAfter=11, alignment=4)
+_sig_name = ParagraphStyle("SigName",  parent=_N, fontName=_B, fontSize=10, leading=12, spaceAfter=0.75)
+_sig_role = ParagraphStyle("SigRole",  parent=_N, fontName=_R, fontSize=9, leading=10.5)
 
 _MESES = [
     "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -324,8 +340,8 @@ def codigo_documento(cert: CertificateRequest) -> str | None:
 
 _TZ = timezone(timedelta(hours=-5), "America/Bogota")  # Colombia no usa horario de verano
 _SELLO = str(_STATIC / "sello_cancelado.png")
-_sello_fecha = ParagraphStyle("SelloFecha", parent=_styles["Normal"], fontSize=9,
-                              alignment=1, spaceBefore=3)
+_sello_fecha = ParagraphStyle("SelloFecha", parent=_styles["Normal"], fontName=_R,
+                              fontSize=9, leading=10.5, alignment=1, spaceBefore=2.25)
 
 
 def fecha_elaboracion(cert: CertificateRequest) -> date:
@@ -454,7 +470,6 @@ def build_certificate_pdf(
     # ── Body paragraph ────────────────────────────────────────────────────────
     es_recordar = _es_recordar(cert.empresa)
     story.append(Paragraph(cuerpo_html(cert), _body))
-    story.append(Spacer(1, 0.3 * cm))
 
     # ── Services table ────────────────────────────────────────────────────────
     grupos = grupos or []
@@ -462,75 +477,75 @@ def build_certificate_pdf(
         val_col = 4 * cm
         svc_col = content_width - val_col
 
-        header = Table(
-            [[Paragraph("SERVICIOS UTILIZADOS", _svc_bold),
-              Paragraph("VALOR", _svc_r)]],
-            colWidths=[svc_col, val_col],
+        pad = 1.5  # 0.15em de 10 pt, como la vista previa
+
+        def _tabla(filas, estilo_extra=()):
+            t = Table(filas, colWidths=[svc_col, val_col])
+            t.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), pad),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), pad),
+                *estilo_extra,
+            ]))
+            return t
+
+        header = _tabla(
+            [[Paragraph("SERVICIOS UTILIZADOS", _th), Paragraph("VALOR", _th_r)]],
+            [("LINEABOVE", (0, 0), (-1, 0), 0.5, colors.black),
+             ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
+             ("TOPPADDING", (0, 0), (-1, -1), 3),
+             ("BOTTOMPADDING", (0, 0), (-1, -1), 3)],
         )
-        header.setStyle(TableStyle([
-            ("LINEABOVE",  (0, 0), (-1, 0), 0.5, colors.black),
-            ("LINEBELOW",  (0, 0), (-1, 0), 0.5, colors.black),
-            ("TOPPADDING",    (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ]))
         story.append(header)
 
-        row_style = TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ])
+        ancho_punto = stringWidth(".", _R, 10)
 
-        def _row(nombre: str, valor: int | None, style=_body, bold_val=True):
-            dots = "." * max(4, int((svc_col / (0.22 * cm)) - len(nombre)))
+        def _puntos(nombre: str, fuente: str) -> str:
+            """Puntos que rellenan el renglón hasta la columna del valor."""
+            libre = svc_col - 6 - stringWidth(nombre, fuente, 10)
+            return "." * max(1, int(libre / ancho_punto)) if libre > ancho_punto else "."
+
+        def _row(nombre: str, valor: int | None, negrilla: bool = False):
             if valor is None:
                 val_str = "-"
             else:
                 val_str = "$ -" if valor == 0 else f"$ {_formato_cop(valor)}"
-            t = Table(
-                [[Paragraph(f"{html.escape(nombre)}{dots}", style),
-                  Paragraph(val_str, _svc_r)]],
-                colWidths=[svc_col, val_col],
-            )
-            t.setStyle(row_style)
-            return t
+            fuente = _B if negrilla else _R
+            texto = html.escape(nombre)
+            if negrilla:
+                texto = f"<b>{texto}</b>"
+            return _tabla([[Paragraph(texto + _puntos(nombre, fuente), _svc),
+                            Paragraph(val_str, _svc_rb if negrilla else _svc_r)]])
 
         if cert.valor_total:
             palabras_top = _numero_a_palabras(cert.valor_total)
-            total_top = Table(
-                [[Paragraph(f"TOTAL: {palabras_top} PESOS M/L", _svc_bold),
-                  Paragraph(f"$ {_formato_cop(cert.valor_total)}", _svc_r)]],
-                colWidths=[svc_col, val_col],
-            )
-            total_top.setStyle(TableStyle([
-                ("LINEBELOW", (0, 0), (-1, 0), 0.3, colors.HexColor("#aaaaaa")),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ]))
-            story.append(total_top)
+            story.append(_tabla([[
+                Paragraph(f"TOTAL: {palabras_top} PESOS M/L", _svc_bold),
+                Paragraph(f"$ {_formato_cop(cert.valor_total)}", _svc_rb),
+            ]], [("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
 
         if grupos:
             for g in grupos:
                 if g.get("titulo"):
-                    story.append(_row(g["titulo"], g["valor"], style=_svc_bold))
+                    story.append(_row(g["titulo"], g["valor"], negrilla=True))
                 for nombre, valor in g["lineas"]:
                     story.append(_row(nombre, valor))
         else:
-            story.append(_row(cert.nombre_servicio or "", cert.valor_total))
+            story.append(_row(cert.nombre_servicio or "", None))
 
         if cert.descripcion_servicio:
-            story.append(Paragraph(f"({html.escape(cert.descripcion_servicio)})", _body))
+            story.append(Paragraph(f"({html.escape(cert.descripcion_servicio)})", _svc_desc))
 
-        closing = Table([[""]], colWidths=[content_width])
+        closing = Table([[""]], colWidths=[content_width], rowHeights=[2])
         closing.setStyle(TableStyle([
             ("LINEBELOW", (0, 0), (-1, -1), 0.5, colors.black),
             ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ]))
         story.append(closing)
-        story.append(Spacer(1, 0.3 * cm))
+        story.append(Spacer(1, 4.5))
 
         if destino:
             story.append(Paragraph(f"({destino})", _total))
@@ -538,7 +553,7 @@ def build_certificate_pdf(
         if cert.valor_total:
             palabras = _numero_a_palabras(cert.valor_total)
             story.append(Paragraph(
-                f"TOTAL: {palabras} PESOS M/L (${_formato_cop(cert.valor_total)})",
+                f"TOTAL: {palabras} PESOS M/L ($ {_formato_cop(cert.valor_total)})",
                 _total,
             ))
 
@@ -565,7 +580,7 @@ def build_certificate_pdf(
 
     # ── Signature block (+ sello de cancelado para RECORDAR) ─────────────────
     imagenes = imagenes or {}
-    story.append(Spacer(1, 0.6 * cm))
+    story.append(Spacer(1, 7.5))
     firma: list = []
     sig_img = _imagen(imagenes.get("firma"), _SIGNATURE, 5 * cm, 2 * cm)
     firma.append(sig_img or Spacer(1, 2 * cm))
