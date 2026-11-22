@@ -19,11 +19,12 @@ from app.models.certificate_request import StatusEnum
 from app.models.session import Session as DbSession
 from app.models.user import RoleEnum
 from app.schemas.certificate_request import CertificateRequestIn
-from app.services import appsetting_service, certificate_service, pdf_service, servicio_service
+from app.services import appsetting_service, certificate_service, marca_service, pdf_service, servicio_service
 from app.services.audit_service import log_action
 from app.services.pdf_service import (
     _MESES,
     _numero_a_palabras,
+    codigo_documento,
     cuerpo_html,
     encrypt_pdf,
     fecha_elaboracion,
@@ -31,6 +32,8 @@ from app.services.pdf_service import (
     lleva_sello_cancelado,
     pdf_password,
 )
+
+templates.env.globals["codigo_documento"] = codigo_documento
 
 router = APIRouter(
     prefix="/certificates",
@@ -117,10 +120,11 @@ def _check_por_tipo(form_dict: dict) -> dict[str, str]:
     return errors
 
 
-def _form_ctx(session: DbSession, *, cert, field_errors, required_fields, form_action) -> dict:
+def _form_ctx(session: DbSession, *, cert, field_errors, required_fields, form_action, codigo=None) -> dict:
     return _ctx(
         session,
         cert=cert,
+        codigo=codigo,
         cert_servicios=_items_para_form(cert),
         field_errors=field_errors,
         required_fields=required_fields,
@@ -367,7 +371,7 @@ async def edit_certificate_form(
     return templates.TemplateResponse(
         request,
         "certificates/form.html",
-        _form_ctx(session, cert=cert, field_errors={},
+        _form_ctx(session, cert=cert, field_errors={}, codigo=codigo_documento(cert),
                   required_fields=required_fields, form_action=f"/certificates/{cert.id}"),
     )
 
@@ -407,6 +411,7 @@ async def update_certificate(
                 field_errors=all_errors,
                 required_fields=required_fields,
                 form_action=f"/certificates/{cert_id}",
+                codigo=codigo_documento(cert),
             ),
             status_code=status.HTTP_400_BAD_REQUEST,
         )
@@ -586,6 +591,8 @@ async def preview_certificate(
             "destino": destino,
             "fecha_firma": fecha_firma(cert),
             "sello_cancelado": lleva_sello_cancelado(cert),
+            "codigo": codigo_documento(cert),
+            "img": await marca_service.urls(db),
         },
     )
 
@@ -618,6 +625,7 @@ async def download_certificate_pdf(
         signer_cargo=signer_cargo,
         grupos=grupos,
         destino=destino,
+        imagenes=await marca_service.bytes_para_pdf(db),
     )
     password = pdf_password(cert)
     if password:

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -90,10 +90,24 @@ def assert_can_edit(cert: CertificateRequest, user: User) -> None:
         raise CertificateServiceError("Esta solicitud ya no se puede editar en su estado actual.")
 
 
+_SEQ = "consecutivo_certificado_seq"
+
+
+async def proximo_consecutivo(db: AsyncSession) -> int | None:
+    """Número que recibirá la próxima solicitud (sin consumirlo)."""
+    try:
+        fila = (await db.execute(text(f"SELECT last_value, is_called FROM {_SEQ}"))).one()
+    except Exception:
+        await db.rollback()
+        return None
+    return fila.last_value + 1 if fila.is_called else fila.last_value
+
+
 async def create_draft(
     db: AsyncSession, *, asesor: User, data: CertificateRequestIn, ip_address: str | None
 ) -> CertificateRequest:
     cert = CertificateRequest(asesor_id=asesor.id, status=StatusEnum.DRAFT, **data.model_dump())
+    cert.numero_certificado = str(await db.scalar(text(f"SELECT nextval('{_SEQ}')")))
     db.add(cert)
     await db.flush()
     await log_action(
@@ -189,7 +203,7 @@ async def approve(
 async def send_certificate_email(
     db: AsyncSession, *, cert: CertificateRequest, actor: User, ip_address: str | None
 ) -> bool:
-    from app.services import appsetting_service, servicio_service
+    from app.services import appsetting_service, marca_service, servicio_service
 
     email_enabled = await appsetting_service.get_setting(db, "email_enabled", default="false")
     if email_enabled != "true":
@@ -205,6 +219,7 @@ async def send_certificate_email(
         signer_cargo=signer_cargo,
         grupos=grupos,
         destino=destino,
+        imagenes=await marca_service.bytes_para_pdf(db),
     )
     await log_action(
         db,

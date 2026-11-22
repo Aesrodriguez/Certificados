@@ -20,6 +20,7 @@ from app.models.audit_log import AuditActionEnum, AuditLog
 from app.models.certificate_request import CertificateRequest, StatusEnum
 from app.models.session import Session as DbSession
 from app.models.user import RoleEnum
+from app.services.pdf_service import codigo_documento
 
 router = APIRouter(
     prefix="/reportes",
@@ -190,7 +191,7 @@ async def exportar_historial(
     ])
     for c in certs:
         w.writerow([_celda(x) for x in [
-            c.numero_certificado,
+            codigo_documento(c),
             c.created_at.astimezone(_TZ).strftime("%d/%m/%Y %H:%M"),
             _ESTADOS.get(c.status, c.status.value),
             catalogo.EMPRESAS.get(c.empresa or "", c.empresa),

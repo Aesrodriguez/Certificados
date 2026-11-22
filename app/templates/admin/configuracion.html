@@ -9,6 +9,12 @@
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
 </div>
 {% endif %}
+{% if error %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+</div>
+{% endif %}
 
 <style>
 /* ── Field config cards ── */
@@ -388,6 +394,70 @@
         <button type="submit" class="btn btn-primary">Guardar cambios</button>
     </div>
 </form>
+
+{# ── Consecutivo ── #}
+<div class="card mt-4 mb-4">
+    <div class="card-header fw-semibold">N.º de documento</div>
+    <div class="card-body">
+        <div class="fw-semibold">Consecutivo automático</div>
+        <div class="text-muted small">
+            Cada solicitud nueva recibe el siguiente número al guardarse, con el formato
+            <code>BQ-GER-5-1-&lt;número&gt;-&lt;año&gt;</code>. El año es el de creación de la solicitud.
+        </div>
+        {% if proximo_consecutivo %}
+        <div class="mt-2">Próxima solicitud:
+            <strong>BQ-GER-5-1-{{ proximo_consecutivo }}-{{ anio_actual }}</strong></div>
+        {% endif %}
+    </div>
+</div>
+
+{# ── Imágenes (logos) ── #}
+<div class="card mb-4" id="imagenes">
+    <div class="card-header fw-semibold">Logos e imágenes del certificado</div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            Carga imágenes PNG o JPG de máximo 3 MB. Se usan en la vista previa, en el PDF y en el correo.
+            Si restableces una imagen, vuelve a usarse la original.
+        </p>
+        <div class="row g-3">
+            {% for r in ranuras %}
+            {% set fila = imagenes.get(r.clave) %}
+            <div class="col-lg-4">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                    <div class="fw-semibold">{{ r.titulo }}</div>
+                    <div class="text-muted small mb-2">{{ r.ayuda }}</div>
+                    <div class="border rounded bg-white d-flex align-items-center justify-content-center mb-2" style="height:140px;">
+                        <img src="{{ imagen_urls[r.clave] }}" alt="{{ r.titulo }}" style="max-width:100%;max-height:130px;object-fit:contain;">
+                    </div>
+                    <div class="small mb-2">
+                        {% if fila %}
+                        <span class="badge text-bg-success">Cargada</span>
+                        <span class="text-muted">{{ fila.nombre_archivo }}</span>
+                        {% else %}
+                        <span class="badge text-bg-secondary">Original</span>
+                        {% endif %}
+                    </div>
+                    <form method="post" enctype="multipart/form-data"
+                          action="/admin/configuracion/imagen/{{ r.clave }}" class="mt-auto">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <div class="input-group input-group-sm">
+                            <input type="file" class="form-control" name="archivo"
+                                   accept="image/png,image/jpeg" required>
+                            <button class="btn btn-primary" type="submit">Cargar</button>
+                        </div>
+                    </form>
+                    {% if fila %}
+                    <form method="post" action="/admin/configuracion/imagen/{{ r.clave }}/restablecer" class="mt-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button class="btn btn-link btn-sm p-0 text-danger" type="submit">Restablecer original</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}

@@ -69,8 +69,9 @@
             <div class="row">
                 <div class="col-md-3 mb-2">
                     <label class="form-label">N.º documento</label>
-                    <input class="form-control solo-nums" name="numero_certificado" inputmode="numeric"
-                           placeholder="Ej: 50000" value="{{ val('numero_certificado') }}">
+                    <input class="form-control" readonly tabindex="-1"
+                           value="{{ codigo or 'Se asigna al guardar' }}">
+                    <div class="form-text">Consecutivo automático.</div>
                 </div>
                 <div class="col-md-3 mb-2">
                     <label class="form-label">Fecha de solicitud <span class="text-danger" data-solo-tipo="gastos">*</span></label>
