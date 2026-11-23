@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from starlette.responses import PlainTextResponse
@@ -54,5 +54,24 @@ app.include_router(marca.router)
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+
+@app.get("/keepalive", include_in_schema=False)
+@limiter.limit("30/minute")
+async def keepalive(request: Request):
+    """Lo visita un monitor externo cada pocos minutos para que Render (plan gratis)
+    no duerma el servidor y Supabase no pause la base de datos por inactividad.
+    No expone datos: solo hace SELECT 1. /healthz queda sin BD para el chequeo de Render."""
+    from sqlalchemy import text
+
+    from app.db.session import engine
+
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception:
+        logging.getLogger(__name__).exception("keepalive: la base de datos no respondió")
+        return PlainTextResponse("db error", status_code=503)
+    return PlainTextResponse("ok")
 
 
