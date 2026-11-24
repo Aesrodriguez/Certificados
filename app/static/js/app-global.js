@@ -27,6 +27,18 @@
     }
   });
 
+  // Botón "Volver" de las pantallas de error (la CSP no permite onclick en línea).
+  // Si no hay página anterior (enlace abierto directamente), va al inicio.
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-action="history-back"]');
+    if (!btn) return;
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = '/';
+    }
+  });
+
   var toggle  = document.getElementById('sidebarToggle');
   var sidebar = document.getElementById('appSidebar');
   var overlay = document.getElementById('sidebarOverlay');
