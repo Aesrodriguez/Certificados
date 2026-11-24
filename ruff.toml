@@ -1,0 +1,7 @@
+# Configuración de ruff. Va aquí y no en pyproject.toml porque Vercel, si encuentra un
+# pyproject.toml, instala las dependencias desde él e ignora requirements.txt.
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]
