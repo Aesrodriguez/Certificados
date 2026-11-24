@@ -163,8 +163,8 @@ async def build_desglose(db: AsyncSession, cert) -> tuple[list[dict], str | None
     """Arma los grupos de líneas que van en el certificado y la leyenda de destino final.
 
     Cada grupo: {"titulo": str | None, "valor": int, "lineas": [(nombre, valor), ...]}.
-    `titulo` solo se llena cuando hay varios ítems, para que se vea a qué servicio
-    pertenece cada desglose; con un único ítem se conserva el formato de siempre.
+    `titulo` es el producto o servicio prestado (p. ej. "SERVICIO FUNERARIO ESTILO L") y
+    va en negrilla con su valor, encabezando las líneas del desglose.
 
     Formatos de servicios_json soportados:
       - Nuevo: [{"servicio", "nombre", "valor"}] — un ítem por servicio seleccionado.
@@ -198,6 +198,12 @@ async def build_desglose(db: AsyncSession, cert) -> tuple[list[dict], str | None
     else:
         destino = destino_final([cert.nombre_servicio or ""])
 
-    if len(grupos) == 1:
-        grupos[0]["titulo"] = None
+    # El título de cada grupo es el producto o servicio prestado y encabeza su desglose.
+    # Si el grupo no tiene título (formatos antiguos), se usa el nombre del servicio.
+    for g in grupos:
+        if not g["titulo"] and len(g["lineas"]) > 1:
+            g["titulo"] = cert.nombre_servicio or None
+        # Si el desglose es una sola línea igual al producto, no se repite.
+        if g["titulo"] and len(g["lineas"]) == 1 and g["lineas"][0][0] == g["titulo"]:
+            g["titulo"] = None
     return grupos, destino

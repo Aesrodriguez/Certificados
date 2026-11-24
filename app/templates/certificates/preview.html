@@ -123,6 +123,7 @@
         .cert-certificamos {
             font-size: 1.182em;
             font-weight: bold;
+            text-align: center;
             margin-bottom: 10px;
         }
         .cert-body {
@@ -268,12 +269,6 @@
                 </tr>
             </thead>
             <tbody>
-                {% if cert.valor_total %}
-                <tr>
-                    <td><strong>TOTAL: {{ total_palabras }} PESOS&nbsp;M/L</strong></td>
-                    <td class="val-col"><strong>$ {{ "{:,}".format(cert.valor_total).replace(",", ".") }}</strong></td>
-                </tr>
-                {% endif %}
                 {% if grupos %}
                 {% for g in grupos %}
                 {% if g.titulo %}
