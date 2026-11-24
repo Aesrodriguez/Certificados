@@ -67,9 +67,11 @@ Abrir en: http://localhost:8000
 ## Tests
 
 ```bash
-pip install pytest pytest-asyncio httpx
+pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
+
+Los tests no necesitan base de datos ni `.env`: `tests/conftest.py` fija variables falsas.
 
 ## Seguridad
 

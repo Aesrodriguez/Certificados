@@ -39,6 +39,14 @@ class Settings(BaseSettings):
         return self.ENV == "production"
 
     @property
+    def migration_url(self) -> str:
+        """URL sync que usa Alembic: la directa si existe; si no, la de la app adaptada
+        al driver sync (psycopg2 usa `sslmode` donde asyncpg usa `ssl`)."""
+        if self.DATABASE_URL_DIRECT:
+            return self.DATABASE_URL_DIRECT
+        return self.DATABASE_URL.replace("+asyncpg", "+psycopg2").replace("ssl=", "sslmode=")
+
+    @property
     def gmail_configured(self) -> bool:
         return bool(
             self.GMAIL_SENDER
