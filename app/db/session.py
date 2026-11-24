@@ -1,5 +1,6 @@
 import os
 from collections.abc import AsyncGenerator
+from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -10,15 +11,15 @@ from sqlalchemy.engine import make_url
 # Local Postgres (e.g. Docker) has no SSL; Neon requires it.
 _IS_LOCAL_DB = make_url(settings.DATABASE_URL).host in ("localhost", "127.0.0.1")
 
-# Neon's runtime endpoint is PgBouncer in transaction-pooling mode. asyncpg
-# already defaults to *anonymous* prepared statements (name=None), which is
-# safe through transaction pooling; explicitly naming them (the commonly
-# cited PgBouncer workaround) backfires here because the PREPARE and the
-# later EXECUTE can land on different pooled backend connections, which is
-# exactly what produced InvalidCachedStatementError in testing. We disable
-# SQLAlchemy's own prepared-statement object cache (statements are cheap to
-# re-describe and a cached PreparedStatement tied to one physical asyncpg
-# connection shouldn't be reused across a different one).
+# El pooler (Supabase, puerto 6543) está en modo transacción: varias conexiones de
+# la app comparten los mismos backends de Postgres. Aunque SQLAlchemy pase
+# name=None, asyncpg nombra cada prepared statement en orden por conexión
+# (__asyncpg_stmt_1__, _2__…), así que dos conexiones que caen en el mismo backend
+# chocan con DuplicatePreparedStatementError. Con nombres únicos (uuid4) no hay
+# choque; es la solución que documenta SQLAlchemy para PgBouncer. PREPARE y
+# EXECUTE van dentro de la misma transacción, así que llegan al mismo backend.
+# También se desactivan las cachés de statements de asyncpg y de SQLAlchemy,
+# para no reutilizar un statement preparado en otro backend.
 #
 # Las conexiones se reutilizan entre peticiones (antes NullPool abría una nueva
 # conexión TLS a la BD en cada visita, lo que costaba varios viajes de ida y
@@ -30,6 +31,7 @@ _CONNECT_ARGS = {
     "ssl": False if _IS_LOCAL_DB else "require",
     "statement_cache_size": 0,
     "prepared_statement_cache_size": 0,
+    "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__",
 }
 
 # En Vercel (funciones serverless) la instancia se congela entre peticiones y
