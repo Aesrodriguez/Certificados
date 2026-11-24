@@ -58,7 +58,7 @@ except Exception:  # sin los archivos de fuente, usa la Times estándar del PDF
 _N = _styles["Normal"]
 
 _cert_num = ParagraphStyle("CertNum",  parent=_N, fontName=_B, fontSize=11, leading=13, spaceAfter=8.8)
-_heading  = ParagraphStyle("Heading",  parent=_N, fontName=_B, fontSize=13, leading=15, spaceAfter=7.5)
+_heading  = ParagraphStyle("Heading",  parent=_N, fontName=_B, fontSize=13, leading=15, spaceAfter=7.5, alignment=1)  # centrado
 _body     = ParagraphStyle("Body",     parent=_N, fontName=_R, fontSize=11, leading=16.5,
                            spaceAfter=11, alignment=4)  # justificado
 _th       = ParagraphStyle("Th",       parent=_N, fontName=_B, fontSize=10, leading=12, alignment=1)
@@ -518,13 +518,6 @@ def build_certificate_pdf(
                 texto = f"<b>{texto}</b>"
             return _tabla([[Paragraph(texto + _puntos(nombre, fuente), _svc),
                             Paragraph(val_str, _svc_rb if negrilla else _svc_r)]])
-
-        if cert.valor_total:
-            palabras_top = _numero_a_palabras(cert.valor_total)
-            story.append(_tabla([[
-                Paragraph(f"TOTAL: {palabras_top} PESOS M/L", _svc_bold),
-                Paragraph(f"$ {_formato_cop(cert.valor_total)}", _svc_rb),
-            ]], [("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
 
         if grupos:
             for g in grupos:

@@ -15,7 +15,9 @@ if config.config_file_name is not None:
 # Migrations always run against the direct (non-pooler) Neon endpoint with a
 # sync driver — DDL/enum creation through PgBouncer transaction pooling can be
 # unreliable, and migrations are infrequent enough that async buys nothing here.
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL_DIRECT)
+# Si no hay URL directa se usa la de la app adaptada al driver sync (ver
+# Settings.migration_url). Los `%` se escapan por la interpolación de configparser.
+config.set_main_option("sqlalchemy.url", settings.migration_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 

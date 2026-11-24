@@ -56,21 +56,22 @@ Abrir en: http://localhost:8000
 | Variable | Descripción |
 |---|---|
 | `DATABASE_URL` | URL del pooler de Neon (asyncpg) |
-| `DATABASE_URL_DIRECT` | URL directa de Neon (psycopg2, solo Alembic) |
+| `DATABASE_URL_DIRECT` | URL directa de Neon (psycopg2, solo Alembic). Opcional: si falta se usa `DATABASE_URL` |
 | `SESSION_SECRET` | Secreto aleatorio para tokens de sesión (mín. 32 chars) |
-| `RESEND_API_KEY` | API key de Resend |
-| `EMAIL_FROM` | Dirección origen de emails (ej. `Clara <no-reply@tudominio.com>`) |
+| `GMAIL_SENDER`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` | Envío de correos por la API de Gmail |
 | `ADMIN_EMAIL` | Email del admin inicial (solo para seed_admin.py) |
 | `ADMIN_PASSWORD` | Contraseña del admin inicial |
 | `ADMIN_FULL_NAME` | Nombre completo del admin inicial |
-| `ENV` | `production` en Render, `development` en local |
+| `ENV` | `production` en Render, `development` en local. En Vercel es `production` por defecto |
 
 ## Tests
 
 ```bash
-pip install pytest pytest-asyncio httpx
+pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
+
+Los tests no necesitan base de datos ni `.env`: `tests/conftest.py` fija variables falsas.
 
 ## Seguridad
 
@@ -100,3 +101,33 @@ El archivo `render.yaml` define el Blueprint. Al conectar el repo en Render:
 5. Health check: `GET /healthz`
 
 > **Plan Free de Render:** el servicio entra en modo sleep tras ~15 min de inactividad. El primer request tras el sleep tarda ~30-60 s (cold start). Comportamiento esperado y aceptado.
+
+## Despliegue en Vercel
+
+La app corre como una función Python serverless: `api/index.py` reexporta la app de
+FastAPI y `vercel.json` envía todas las rutas a esa función (región `pdx1`, hasta 60 s
+por petición para que alcance a generar el PDF y enviar el correo al aprobar).
+
+1. En Vercel, **Add New → Project** e importar el repositorio. Si el repo tiene más
+   carpetas, poner `Certificados` como *Root Directory*. *Framework Preset*: **Other**.
+2. En **Settings → Environment Variables** definir:
+   - `DATABASE_URL` — usar la URL del **pooler** de la base (en Supabase, el puerto
+     `6543`), con el driver `postgresql+asyncpg://` y `?ssl=require`. En Vercel cada
+     petición abre su propia conexión, así que la URL directa agotaría las conexiones.
+   - `SESSION_SECRET`
+   - `GMAIL_SENDER`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`
+   - `FIRMA_NOMBRE`, `FIRMA_CARGO` (opcionales)
+   - `ENV` no hace falta: en Vercel vale `production` por defecto (cookies `secure`).
+3. **Migraciones:** Vercel no ejecuta `alembic`. Antes de desplegar una versión con
+   migraciones nuevas, correrlas una vez desde un equipo local contra la base de producción:
+   ```bash
+   DATABASE_URL_DIRECT="postgresql+psycopg2://...?sslmode=require" alembic upgrade head
+   ```
+4. Primer administrador: `python scripts/seed_admin.py` desde local, apuntando a la misma base.
+5. Health check: `GET /healthz` (sin BD) y `GET /keepalive` (hace `SELECT 1`).
+
+`.vercelignore` evita que un despliegue con la CLI (`vercel`) suba `.env` o `.venv`.
+
+> **Límite de intentos de login:** el contador de `slowapi` vive en memoria, y en Vercel
+> cada instancia lleva el suyo, así que el límite de 10/minuto es aproximado. El bloqueo
+> de cuenta tras 5 intentos fallidos sí se guarda en la base y funciona igual.

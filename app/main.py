@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 if not settings.gmail_configured:
     logger.warning(
         "EMAIL NOT CONFIGURED: set GMAIL_SENDER, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET "
-        "and GMAIL_REFRESH_TOKEN in Render environment variables."
+        "and GMAIL_REFRESH_TOKEN in the hosting environment variables (Render or Vercel)."
     )
 
 app = FastAPI(title="Clara Certificados")
