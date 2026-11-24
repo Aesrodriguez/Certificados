@@ -96,7 +96,8 @@ async def _send(to: str, subject: str, html: str, attachment: tuple[str, bytes] 
     if not settings.gmail_configured:
         raise EmailDeliveryError(
             "Gmail API not configured. Set GMAIL_SENDER, GMAIL_CLIENT_ID, "
-            "GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN in Render environment variables."
+            "GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN in the hosting environment "
+            "variables (Render or Vercel)."
         )
     await asyncio.to_thread(_send_sync, to, subject, html, attachment)
 

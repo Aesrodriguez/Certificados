@@ -1,6 +1,8 @@
+import os
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from sqlalchemy.engine import make_url
@@ -24,19 +26,30 @@ _IS_LOCAL_DB = make_url(settings.DATABASE_URL).host in ("localhost", "127.0.0.1"
 # transacción, así que PgBouncer mantiene cada sentencia en el mismo backend.
 # pool_pre_ping descarta conexiones que la BD haya cerrado (p. ej. cuando Neon
 # suspende el cómputo) y pool_recycle las renueva cada 5 minutos.
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    pool_size=5,
-    max_overflow=5,
-    pool_pre_ping=True,
-    pool_recycle=300,
-    pool_timeout=30,
-    connect_args={
-        "ssl": False if _IS_LOCAL_DB else "require",
-        "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0,
-    },
-)
+_CONNECT_ARGS = {
+    "ssl": False if _IS_LOCAL_DB else "require",
+    "statement_cache_size": 0,
+    "prepared_statement_cache_size": 0,
+}
+
+# En Vercel (funciones serverless) la instancia se congela entre peticiones y
+# las conexiones guardadas en un pool quedan muertas; ahí se abre una conexión
+# por petición contra el pooler de Supabase (puerto 6543), que es quien
+# mantiene las conexiones reales a Postgres. Vercel define VERCEL=1.
+if os.getenv("VERCEL"):
+    engine = create_async_engine(
+        settings.DATABASE_URL, poolclass=NullPool, connect_args=_CONNECT_ARGS
+    )
+else:
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        pool_size=5,
+        max_overflow=5,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        pool_timeout=30,
+        connect_args=_CONNECT_ARGS,
+    )
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
