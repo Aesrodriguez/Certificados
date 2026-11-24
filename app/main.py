@@ -3,11 +3,11 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from slowapi.errors import RateLimitExceeded
 from starlette.responses import PlainTextResponse
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.core.config import settings
+from app.core.errors import registrar_manejadores
 from app.core.logging_config import configure_logging
 from app.core.middleware import SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
@@ -26,10 +26,8 @@ app = FastAPI(title="Clara Certificados")
 
 app.state.limiter = limiter
 
-
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request, exc):
-    return PlainTextResponse("Demasiados intentos, intenta de nuevo más tarde.", status_code=429)
+# Pantallas de error (404, 403, 429, 500, 503…) en vez de las respuestas vacías.
+registrar_manejadores(app)
 
 
 # Render terminates TLS at the edge and forwards plain HTTP with
