@@ -15,7 +15,12 @@ if config.config_file_name is not None:
 # Migrations always run against the direct (non-pooler) Neon endpoint with a
 # sync driver — DDL/enum creation through PgBouncer transaction pooling can be
 # unreliable, and migrations are infrequent enough that async buys nothing here.
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL_DIRECT)
+# Si no hay URL directa se usa la de la app, pasándola al driver sync (psycopg2 usa
+# `sslmode` donde asyncpg usa `ssl`).
+_url = settings.DATABASE_URL_DIRECT or (
+    settings.DATABASE_URL.replace("+asyncpg", "+psycopg2").replace("ssl=", "sslmode=")
+)
+config.set_main_option("sqlalchemy.url", _url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 

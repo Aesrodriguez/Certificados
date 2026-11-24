@@ -1,0 +1,22 @@
+# Nunca subir secretos ni entornos locales a Vercel
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# No se usan en la función serverless
+tests/
+scripts/
+Docs/
+Contexto/
+Dockerfile
+render.yaml
+start.sh
+.claude/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

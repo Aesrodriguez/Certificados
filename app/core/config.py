@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -6,10 +7,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    ENV: str = "development"
+    # En Vercel (que define VERCEL=1) el valor por defecto es "production", para que la
+    # cookie de sesión salga con `secure` aunque no se configure ENV a mano.
+    ENV: str = "production" if os.getenv("VERCEL") else "development"
 
     DATABASE_URL: str
-    DATABASE_URL_DIRECT: str
+    # Conexión directa (sin pooler) que usa solo Alembic. La app no la necesita, así que
+    # en Vercel puede omitirse; si falta, las migraciones usan DATABASE_URL.
+    DATABASE_URL_DIRECT: str = ""
 
     SESSION_SECRET: str
     SESSION_COOKIE_NAME: str = "clara_session"
