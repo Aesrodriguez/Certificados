@@ -352,8 +352,17 @@ def codigo_documento(cert: CertificateRequest) -> str | None:
 
 _TZ = timezone(timedelta(hours=-5), "America/Bogota")  # Colombia no usa horario de verano
 _SELLO = str(_STATIC / "sello_cancelado.png")
-_sello_fecha = ParagraphStyle("SelloFecha", parent=_styles["Normal"], fontName=_R,
-                              fontSize=9, leading=10.5, alignment=1, spaceBefore=2.25)
+# Debajo del sello: "Barranquilla, noviembre 25 de 2026" en negrita, alineado a la
+# izquierda con el sello (modelo de Clara). El sello en sí no lleva fecha.
+_sello_fecha = ParagraphStyle("SelloFecha", parent=_styles["Normal"], fontName=_B,
+                              fontSize=10.5, leading=12.5, alignment=0, spaceBefore=4)
+_SELLO_COL = 7 * cm
+
+
+def fecha_sello(cert: CertificateRequest, sede: str) -> str:
+    """Fecha de elaboración en letras para debajo del sello: 'Barranquilla, noviembre 25 de 2026'."""
+    d = fecha_elaboracion(cert)
+    return f"{sede}, {_MESES[d.month]} {d.day} de {d.year}"
 
 
 def fecha_elaboracion(cert: CertificateRequest) -> date:
@@ -646,10 +655,10 @@ def build_certificate_pdf(
     if lleva_sello_cancelado(cert, formato.sello_tipos):
         sello_img = _imagen(imagenes.get("sello_cancelado"), _SELLO, 5 * cm, 2.2 * cm)
         if sello_img is not None:
-            sello_img.hAlign = "CENTER"
+            sello_img.hAlign = "LEFT"
         sello = [Spacer(1, 0.4 * cm), sello_img or Spacer(1, 1.7 * cm),
-                 Paragraph(issue.strftime("%d/%m/%Y"), _sello_fecha)]
-        bloque = Table([[firma, sello]], colWidths=[content_width - 6 * cm, 6 * cm])
+                 Paragraph(html.escape(fecha_sello(cert, formato.sede)), _sello_fecha)]
+        bloque = Table([[firma, sello]], colWidths=[content_width - _SELLO_COL, _SELLO_COL])
         bloque.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("LEFTPADDING", (0, 0), (-1, -1), 0),

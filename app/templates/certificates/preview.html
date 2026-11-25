@@ -178,9 +178,10 @@
             margin-bottom: 2px;
         }
         .signature-row { display: flex; justify-content: space-between; align-items: flex-start; }
-        .sello { width: 6cm; text-align: center; padding-top: 0.4cm; }
-        .sello img { display: block; width: 5cm; max-height: 2.2cm; object-fit: contain; margin: 0 auto; }
-        .sello-fecha { font-size: 0.818em; margin-top: 3px; }
+        /* Sello sin fecha; debajo la fecha en letras, alineada a la izquierda (modelo de Clara). */
+        .sello { width: 7cm; text-align: left; padding-top: 0.4cm; }
+        .sello img { display: block; width: 5cm; max-height: 2.2cm; object-fit: contain; object-position: left; }
+        .sello-fecha { font-size: 0.955em; font-weight: bold; margin-top: 4px; white-space: nowrap; }
         .sig-name { font-size: 0.909em; font-weight: bold; margin-bottom: 1px; }
         /* Gastos por servicio (RECORDAR) */
         .enc-linea { font-size: 0.955em; font-weight: bold; text-align: center; line-height: 1.33; }
@@ -375,7 +376,7 @@
             {% if sello_cancelado %}
             <div class="sello">
                 <img src="{{ img.sello_cancelado }}" alt="Sello de caja cancelado">
-                <div class="sello-fecha">{{ issue_date }}</div>
+                <div class="sello-fecha">{{ fecha_sello }}</div>
             </div>
             {% endif %}
         </div>
