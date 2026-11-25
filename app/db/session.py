@@ -8,7 +8,7 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 from sqlalchemy.engine import make_url
 
-# Local Postgres (e.g. Docker) has no SSL; Neon requires it.
+# El Postgres local no usa SSL; la base de producción (Supabase) lo exige.
 _IS_LOCAL_DB = make_url(settings.DATABASE_URL).host in ("localhost", "127.0.0.1")
 
 # El pooler (Supabase, puerto 6543) está en modo transacción: varias conexiones de

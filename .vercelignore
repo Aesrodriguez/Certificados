@@ -13,9 +13,6 @@ tests/
 scripts/
 Docs/
 Contexto/
-Dockerfile
-render.yaml
-start.sh
 .claude/
 .pytest_cache/
 .ruff_cache/

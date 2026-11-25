@@ -1,7 +1,7 @@
 """
 Email delivery via Gmail API (OAuth2 + HTTPS).
 
-Why not SMTP: Render free tier blocks outbound ports 25/465/587.
+Why the Gmail API instead of SMTP: it works over HTTPS with an OAuth refresh token, no app password.
 Gmail API communicates over HTTPS (port 443) which is always open.
 """
 import asyncio
@@ -96,8 +96,8 @@ async def _send(to: str, subject: str, html: str, attachment: tuple[str, bytes] 
     if not settings.gmail_configured:
         raise EmailDeliveryError(
             "Gmail API not configured. Set GMAIL_SENDER, GMAIL_CLIENT_ID, "
-            "GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN in the hosting environment "
-            "variables (Render or Vercel)."
+            "GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN in the Vercel environment "
+            "variables."
         )
     await asyncio.to_thread(_send_sync, to, subject, html, attachment)
 

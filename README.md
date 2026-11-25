@@ -5,11 +5,11 @@ Sistema web de gestión de certificados para servicios exequiales.
 ## Stack
 
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0 async (asyncpg)
-- **Base de datos:** Neon (PostgreSQL), migraciones con Alembic
+- **Base de datos:** Supabase (PostgreSQL), migraciones con Alembic
 - **Frontend:** Jinja2 + Bootstrap 5 (server-rendered, sin build step)
 - **PDF:** ReportLab (generación en memoria, sin guardar en disco)
-- **Email:** Resend SDK (PDF adjunto como base64)
-- **Despliegue:** Render Web Service (plan Free)
+- **Email:** API de Gmail (OAuth2), con el PDF adjunto
+- **Despliegue:** Vercel (función Python serverless)
 
 ## Roles
 
@@ -55,14 +55,14 @@ Abrir en: http://localhost:8000
 
 | Variable | Descripción |
 |---|---|
-| `DATABASE_URL` | URL del pooler de Neon (asyncpg) |
-| `DATABASE_URL_DIRECT` | URL directa de Neon (psycopg2, solo Alembic). Opcional: si falta se usa `DATABASE_URL` |
+| `DATABASE_URL` | URL del pooler de Supabase (puerto 6543), con `postgresql+asyncpg://` y `?ssl=require` |
+| `DATABASE_URL_DIRECT` | URL directa de Supabase (psycopg2, solo Alembic, desde local). Opcional: si falta se usa `DATABASE_URL` |
 | `SESSION_SECRET` | Secreto aleatorio para tokens de sesión (mín. 32 chars) |
 | `GMAIL_SENDER`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` | Envío de correos por la API de Gmail |
 | `ADMIN_EMAIL` | Email del admin inicial (solo para seed_admin.py) |
 | `ADMIN_PASSWORD` | Contraseña del admin inicial |
 | `ADMIN_FULL_NAME` | Nombre completo del admin inicial |
-| `ENV` | `production` en Render, `development` en local. En Vercel es `production` por defecto |
+| `ENV` | `development` en local. En Vercel es `production` por defecto, no hace falta definirlo |
 
 ## Tests
 
@@ -87,20 +87,6 @@ Los tests no necesitan base de datos ni `.env`: `tests/conftest.py` fija variabl
 - Sin SQL crudo: todo vía ORM SQLAlchemy
 - Secretos exclusivamente por variables de entorno (`.env` en `.gitignore`)
 - Dependencias auditadas con `pip-audit` (0 CVEs conocidos)
-
-## Despliegue en Render
-
-El archivo `render.yaml` define el Blueprint. Al conectar el repo en Render:
-
-1. Render ejecuta `pip install -r requirements.txt && alembic upgrade head`
-2. Inicia la app con `gunicorn app.main:app -k uvicorn.workers.UvicornWorker`
-3. Configurar manualmente en el dashboard de Render:
-   - `DATABASE_URL`, `DATABASE_URL_DIRECT`, `RESEND_API_KEY`, `EMAIL_FROM`
-   - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_FULL_NAME`, `ENV=production`
-4. En la **Render Shell**, ejecutar una vez: `python scripts/seed_admin.py`
-5. Health check: `GET /healthz`
-
-> **Plan Free de Render:** el servicio entra en modo sleep tras ~15 min de inactividad. El primer request tras el sleep tarda ~30-60 s (cold start). Comportamiento esperado y aceptado.
 
 ## Despliegue en Vercel
 

@@ -2,7 +2,7 @@
 One-time script to get a Gmail OAuth2 refresh_token.
 
 Run this ONCE on your local machine to get the refresh_token,
-then add it to Render's environment variables. You never need to run it again
+then add it to Vercel's environment variables. You never need to run it again
 unless you revoke the token.
 
 Requirements (only for this script, not for production):
@@ -19,7 +19,7 @@ Steps:
     6. Add http://localhost to Authorized redirect URIs
     7. Run:  python scripts/get_gmail_token.py
     8. A browser opens → log in with andres1809rodriguez@gmail.com → Allow
-    9. Copy the values printed at the end into Render environment variables
+    9. Copy the values printed at the end into Vercel environment variables
 """
 
 import json
@@ -54,7 +54,7 @@ flow = InstalledAppFlow.from_client_config(
 creds = flow.run_local_server(port=0)
 
 print("\n" + "=" * 60)
-print("Add these to Render → Environment variables:")
+print("Add these to Vercel → Settings → Environment Variables:")
 print("=" * 60)
 print(f"GMAIL_CLIENT_ID     = {CLIENT_ID}")
 print(f"GMAIL_CLIENT_SECRET = {CLIENT_SECRET}")

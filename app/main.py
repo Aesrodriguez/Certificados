@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 if not settings.gmail_configured:
     logger.warning(
         "EMAIL NOT CONFIGURED: set GMAIL_SENDER, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET "
-        "and GMAIL_REFRESH_TOKEN in the hosting environment variables (Render or Vercel)."
+        "and GMAIL_REFRESH_TOKEN in the Vercel environment variables."
     )
 
 app = FastAPI(title="Clara Certificados")
@@ -30,9 +30,9 @@ app.state.limiter = limiter
 registrar_manejadores(app)
 
 
-# Render terminates TLS at the edge and forwards plain HTTP with
-# X-Forwarded-Proto; without this, request.url.scheme is always "http" and
-# the HSTS header in SecurityHeadersMiddleware would never be set.
+# Vercel termina TLS en el borde y reenvía la petición con X-Forwarded-Proto; sin
+# esto request.url.scheme sería siempre "http" y SecurityHeadersMiddleware nunca
+# pondría la cabecera HSTS.
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(SecurityHeadersMiddleware)
 
@@ -57,9 +57,8 @@ async def healthz():
 @app.get("/keepalive", include_in_schema=False)
 @limiter.limit("30/minute")
 async def keepalive(request: Request):
-    """Lo visita un monitor externo cada pocos minutos para que Render (plan gratis)
-    no duerma el servidor y Supabase no pause la base de datos por inactividad.
-    No expone datos: solo hace SELECT 1. /healthz queda sin BD para el chequeo de Render."""
+    """Lo visita un monitor externo para que Supabase (plan gratis) no pause la base
+    de datos por inactividad. No expone datos: solo hace SELECT 1. /healthz no toca la BD."""
     from sqlalchemy import text
 
     from app.db.session import engine
