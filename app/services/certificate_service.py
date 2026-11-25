@@ -220,6 +220,7 @@ async def send_certificate_email(
         grupos=grupos,
         destino=destino,
         imagenes=await marca_service.bytes_para_pdf(db),
+        formato=await appsetting_service.get_formato(db),
     )
     await log_action(
         db,

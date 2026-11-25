@@ -19,7 +19,14 @@ from app.models.certificate_request import StatusEnum
 from app.models.session import Session as DbSession
 from app.models.user import RoleEnum
 from app.schemas.certificate_request import CertificateRequestIn
-from app.services import appsetting_service, certificate_service, marca_service, pdf_service, servicio_service
+from app.services import (
+    appsetting_service,
+    certificate_service,
+    formato_recordar,
+    marca_service,
+    pdf_service,
+    servicio_service,
+)
 from app.services.audit_service import log_action
 from app.services.pdf_service import (
     _MESES,
@@ -569,6 +576,8 @@ async def preview_certificate(
     total_palabras = _numero_a_palabras(cert.valor_total) if cert.valor_total else ""
     grupos, destino = await servicio_service.build_desglose(db, cert)
     signer_nombre, signer_cargo = _signer(cert)
+    formato = await appsetting_service.get_formato(db)
+    es_recordar = catalogo.es_recordar(cert.empresa)
 
     return templates.TemplateResponse(
         request,
@@ -590,7 +599,12 @@ async def preview_certificate(
             "grupos": grupos,
             "destino": destino,
             "fecha_firma": fecha_firma(cert),
-            "sello_cancelado": lleva_sello_cancelado(cert),
+            "sello_cancelado": lleva_sello_cancelado(cert, formato.sello_tipos),
+            "es_recordar": es_recordar,
+            "encabezado": formato_recordar.encabezado(cert, formato.sede) if es_recordar else [],
+            "tipo_servicio": formato_recordar.tipo_servicio(cert) if es_recordar else None,
+            "filas": formato_recordar.filas(grupos) if es_recordar else [],
+            "bloque_titular": formato_recordar.bloque_titular(cert) if es_recordar else [],
             "codigo": codigo_documento(cert),
             "img": await marca_service.urls(db),
         },
@@ -626,6 +640,7 @@ async def download_certificate_pdf(
         grupos=grupos,
         destino=destino,
         imagenes=await marca_service.bytes_para_pdf(db),
+        formato=await appsetting_service.get_formato(db),
     )
     password = pdf_password(cert)
     if password:

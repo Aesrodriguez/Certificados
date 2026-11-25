@@ -126,6 +126,39 @@
         </div>
     </div>
 
+    {# ── Formato del certificado ── #}
+    <div class="card mb-4" id="formato">
+        <div class="card-header fw-semibold">Formato del certificado</div>
+        <div class="card-body">
+            <div class="fw-semibold mb-1">Sello de CAJA CANCELADO</div>
+            <div class="text-muted small mb-2">
+                Marca los tipos de certificado que llevan el sello junto a la firma.
+            </div>
+            <div class="row g-2 mb-4">
+                {% for tipo in tipos_certificado %}
+                <div class="col-sm-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="sello_tipo"
+                               id="sello{{ loop.index }}" value="{{ tipo }}"
+                               {% if tipo in formato.sello_tipos %}checked{% endif %}>
+                        <label class="form-check-label small" for="sello{{ loop.index }}">
+                            {{ tipo|capitalize }}
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <label class="fw-semibold mb-1" for="sede">Sede</label>
+            <div class="text-muted small mb-2">
+                Ciudad que aparece en el encabezado del certificado de gastos por servicio
+                ("Sede: …").
+            </div>
+            <input class="form-control" style="max-width: 320px" type="text" id="sede"
+                   name="sede" maxlength="100" value="{{ formato.sede }}" required>
+        </div>
+    </div>
+
     {# ── Campos obligatorios ── #}
     <div class="card mb-4">
         <div class="card-header fw-semibold">Campos obligatorios del formulario</div>

@@ -251,6 +251,8 @@ async def configuracion_page(
             email_enabled=(email_enabled == "true"),
             required_fields=required_fields,
             configurable_fields=appsetting_service.CONFIGURABLE_FIELDS,
+            formato=await appsetting_service.get_formato(db),
+            tipos_certificado=appsetting_service.TIPOS_CERTIFICADO,
             msg=msg,
             error=error,
             ranuras=marca_service.RANURAS,
@@ -273,6 +275,9 @@ async def configuracion_save(
     await appsetting_service.set_setting(db, "email_enabled", email_enabled)
     req_fields = list(form.getlist("req_field"))
     await appsetting_service.set_required_fields(db, req_fields)
+    await appsetting_service.set_formato(
+        db, list(form.getlist("sello_tipo")), str(form.get("sede") or "")
+    )
     return RedirectResponse(url="/admin/configuracion?msg=Configuración+guardada.", status_code=303)
 
 

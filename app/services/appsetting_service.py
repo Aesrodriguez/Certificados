@@ -1,8 +1,10 @@
 import json
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import catalogo
 from app.models.appsetting import AppSetting
 
 # Fields the admin can toggle as required/optional.
@@ -55,3 +57,45 @@ async def get_required_fields(db: AsyncSession) -> set[str]:
 async def set_required_fields(db: AsyncSession, fields: list[str]) -> None:
     cleaned = sorted(f for f in fields if f in _VALID_CONFIGURABLE)
     await set_setting(db, "required_fields", json.dumps(cleaned))
+
+
+# ── Formato del certificado ──────────────────────────────────────────────────
+# Tipos de certificado que llevan el sello de CAJA CANCELADO. Por defecto solo el
+# de gastos por servicio (RECORDAR), como dice la especificación; el admin puede
+# añadir otros desde Configuración.
+SELLO_TIPOS_DEFECTO: tuple[str, ...] = (catalogo.TIPO_SERVICIOS,)
+SEDE_DEFECTO = "Barranquilla"
+
+
+@dataclass(frozen=True)
+class FormatoCertificado:
+    sello_tipos: frozenset[str] = frozenset(SELLO_TIPOS_DEFECTO)
+    sede: str = SEDE_DEFECTO
+
+
+def _tipos_validos() -> list[str]:
+    vistos: list[str] = []
+    for tipos in catalogo.TIPOS_POR_EMPRESA.values():
+        vistos.extend(t for t in tipos if t not in vistos)
+    return vistos
+
+
+TIPOS_CERTIFICADO: list[str] = _tipos_validos()
+
+
+async def get_formato(db: AsyncSession) -> FormatoCertificado:
+    raw = await get_setting(db, "sello_tipos", default="")
+    try:
+        tipos = json.loads(raw) if raw else list(SELLO_TIPOS_DEFECTO)
+        if not isinstance(tipos, list):
+            tipos = list(SELLO_TIPOS_DEFECTO)
+    except (json.JSONDecodeError, TypeError):
+        tipos = list(SELLO_TIPOS_DEFECTO)
+    sede = (await get_setting(db, "sede", default="")).strip() or SEDE_DEFECTO
+    return FormatoCertificado(sello_tipos=frozenset(tipos), sede=sede)
+
+
+async def set_formato(db: AsyncSession, sello_tipos: list[str], sede: str) -> None:
+    validos = set(TIPOS_CERTIFICADO)
+    await set_setting(db, "sello_tipos", json.dumps(sorted(t for t in sello_tipos if t in validos)))
+    await set_setting(db, "sede", sede.strip()[:100] or SEDE_DEFECTO)

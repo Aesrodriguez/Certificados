@@ -182,6 +182,15 @@
         .sello img { display: block; width: 5cm; max-height: 2.2cm; object-fit: contain; margin: 0 auto; }
         .sello-fecha { font-size: 0.818em; margin-top: 3px; }
         .sig-name { font-size: 0.909em; font-weight: bold; margin-bottom: 1px; }
+        /* Gastos por servicio (RECORDAR) */
+        .enc-linea { font-size: 0.955em; font-weight: bold; text-align: center; line-height: 1.33; }
+        .enc-fin { margin-bottom: 1em; }
+        .desc-head { font-size: 0.909em; font-weight: bold; }
+        .desc-servicio td { font-size: 0.909em; font-weight: bold; text-decoration: underline;
+                            border-bottom: 0.5pt solid #000; padding: 0 0 3px; }
+        .svc-table tr.fila-espacio td { height: 8pt; padding: 0; }
+        .bloque-titular { border-top: 0.5pt solid #000; padding-top: 4px; }
+        .bloque-titular div { font-size: 0.909em; font-weight: bold; line-height: 1.3; }
         .sig-role { font-size: 0.818em; }
 
         /* ── Print styles ───────────────────────────────────────── */
@@ -255,21 +264,46 @@
         <div class="cert-number">{{ codigo }}</div>
         {% endif %}
 
+        {% if es_recordar %}
+        <div class="cert-certificamos">CERTIFICACIÓN DE GASTOS</div>
+        {% for renglon in encabezado %}
+        <div class="enc-linea{% if loop.last %} enc-fin{% endif %}">{% for k, v in renglon %}{{ k }} {{ v }}{% if not loop.last %} {% endif %}{% endfor %}</div>
+        {% endfor %}
+        {% else %}
         <div class="cert-certificamos">CERTIFICAMOS</div>
-
-        {% set es_recordar = "recordar" in (cert.empresa or "")|lower %}
         <div class="cert-body">{{ cuerpo }}</div>
+        {% endif %}
 
         {% if grupos or cert.nombre_servicio or cert.valor_total %}
+        {% if es_recordar %}
+        <div class="desc-head">DESCRIPCIÓN DEL SERVICIO</div>
+        {% endif %}
         <table class="svc-table">
             <thead>
+                {% if es_recordar %}
+                <tr class="desc-servicio">
+                    <td colspan="2">{% if tipo_servicio %}Servicio: {{ tipo_servicio }}{% else %}&nbsp;{% endif %}</td>
+                </tr>
+                {% else %}
                 <tr>
                     <th>SERVICIOS UTILIZADOS</th>
                     <th class="val-col">VALOR</th>
                 </tr>
+                {% endif %}
             </thead>
             <tbody>
-                {% if grupos %}
+                {% if grupos and es_recordar %}
+                {% for f in filas %}
+                {% if f.tipo == "espacio" %}
+                <tr class="fila-espacio"><td colspan="2"></td></tr>
+                {% else %}
+                <tr>
+                    <td>{% if f.tipo != "linea" %}<strong>{{ f.nombre }}</strong>{% else %}{{ f.nombre }}{% endif %}{{ "." * [1, 85 - f.nombre|length]|max }}</td>
+                    <td class="val-col">{% if f.tipo != "linea" %}<strong>{% endif %}{% if f.valor %}$ {{ "{:,}".format(f.valor).replace(",", ".") }}{% else %}$ -{% endif %}{% if f.tipo != "linea" %}</strong>{% endif %}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                {% elif grupos %}
                 {% for g in grupos %}
                 {% if g.titulo %}
                 <tr>
@@ -301,7 +335,7 @@
         {% endif %}
         {% if cert.valor_total %}
         <div class="cert-total">
-            TOTAL: {{ total_palabras }} PESOS&nbsp;M/L ($ {{ "{:,}".format(cert.valor_total).replace(",", ".") }})
+            {{ "Son:" if es_recordar else "TOTAL:" }} {{ total_palabras }} PESOS&nbsp;M/L ($ {{ "{:,}".format(cert.valor_total).replace(",", ".") }})
         </div>
         {% endif %}
         {% endif %}
@@ -324,6 +358,12 @@
                 Recibo de caja N° {{ cert.numero_recibo_caja }}
             {% endif %}
         </div>
+
+        {% if bloque_titular %}
+        <div class="bloque-titular">
+            {% for k, v in bloque_titular %}<div>{{ k }} {{ v }}</div>{% endfor %}
+        </div>
+        {% endif %}
 
         <div class="signature-row">
             <div class="signature-block">

@@ -23,8 +23,16 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from app.core.catalogo import TIPO_SERVICIOS, es_recordar as _es_recordar, norm, solo_digitos
+from app.core.catalogo import (
+    TIPO_FACTURA,
+    TIPO_SERVICIOS,
+    es_recordar as _es_recordar,
+    norm,
+    solo_digitos,
+)
 from app.models.certificate_request import CertificateRequest
+from app.services import formato_recordar
+from app.services.appsetting_service import FormatoCertificado
 
 _STATIC = Path(__file__).resolve().parent.parent / "static" / "img"
 _LETTERHEAD = str(_STATIC / "letterhead.jpg")
@@ -74,6 +82,10 @@ _iva      = ParagraphStyle("IVA",      parent=_N, fontName=_R, fontSize=8, leadi
                            textColor=colors.HexColor("#444444"), spaceAfter=9, alignment=4)
 _footer_p = ParagraphStyle("FooterP",  parent=_N, fontName=_R, fontSize=10, leading=15,
                            spaceAfter=11, alignment=4)
+# Certificado de gastos por servicio (RECORDAR): encabezado y bloque del titular.
+_enc_linea = ParagraphStyle("EncLinea", parent=_N, fontName=_B, fontSize=10.5, leading=14, alignment=1)
+_desc_head = ParagraphStyle("DescHead", parent=_N, fontName=_B, fontSize=10, leading=12)
+_titular  = ParagraphStyle("Titular",  parent=_N, fontName=_B, fontSize=10, leading=13)
 _sig_name = ParagraphStyle("SigName",  parent=_N, fontName=_B, fontSize=10, leading=12, spaceAfter=0.75)
 _sig_role = ParagraphStyle("SigRole",  parent=_N, fontName=_R, fontSize=9, leading=10.5)
 
@@ -360,8 +372,17 @@ def fecha_firma(cert: CertificateRequest) -> str:
     return fecha_elaboracion(cert).strftime("%d/%m/%Y")
 
 
-def lleva_sello_cancelado(cert: CertificateRequest) -> bool:
-    return cert.tipo_certificado == TIPO_SERVICIOS or _es_recordar(cert.empresa)
+def tipo_efectivo(cert: CertificateRequest) -> str:
+    """Tipo del certificado; las solicitudes antiguas sin tipo se deducen de la empresa."""
+    if cert.tipo_certificado:
+        return cert.tipo_certificado
+    return TIPO_SERVICIOS if _es_recordar(cert.empresa) else TIPO_FACTURA
+
+
+def lleva_sello_cancelado(cert: CertificateRequest, sello_tipos=None) -> bool:
+    """¿Lleva sello de CAJA CANCELADO? Lo decide Configuración por tipo de certificado."""
+    tipos = sello_tipos if sello_tipos is not None else FormatoCertificado().sello_tipos
+    return tipo_efectivo(cert) in tipos
 
 
 def cuerpo_html(cert: CertificateRequest) -> str:
@@ -424,7 +445,9 @@ def build_certificate_pdf(
     grupos: list[dict] | None = None,
     destino: str | None = None,
     imagenes: dict[str, bytes] | None = None,
+    formato: FormatoCertificado | None = None,
 ) -> bytes:
+    formato = formato or FormatoCertificado()
     buffer = io.BytesIO()
 
     issue = fecha_elaboracion(cert)
@@ -464,12 +487,19 @@ def build_certificate_pdf(
     if codigo:
         story.append(Paragraph(html.escape(codigo), _cert_num))
 
-    # ── CERTIFICAMOS heading ──────────────────────────────────────────────────
-    story.append(Paragraph("CERTIFICAMOS", _heading))
-
-    # ── Body paragraph ────────────────────────────────────────────────────────
     es_recordar = _es_recordar(cert.empresa)
-    story.append(Paragraph(cuerpo_html(cert), _body))
+    if es_recordar:
+        # ── RECORDAR: CERTIFICACIÓN DE GASTOS con los datos en el encabezado ──
+        story.append(Paragraph("CERTIFICACIÓN DE GASTOS", _heading))
+        for renglon in formato_recordar.encabezado(cert, formato.sede):
+            story.append(Paragraph(
+                " ".join(f"{html.escape(k)} {html.escape(v)}" for k, v in renglon), _enc_linea
+            ))
+        story.append(Spacer(1, 11))
+    else:
+        # ── CERTIFICAMOS + párrafo principal ──────────────────────────────────
+        story.append(Paragraph("CERTIFICAMOS", _heading))
+        story.append(Paragraph(cuerpo_html(cert), _body))
 
     # ── Services table ────────────────────────────────────────────────────────
     grupos = grupos or []
@@ -491,14 +521,23 @@ def build_certificate_pdf(
             ]))
             return t
 
-        header = _tabla(
-            [[Paragraph("SERVICIOS UTILIZADOS", _th), Paragraph("VALOR", _th_r)]],
-            [("LINEABOVE", (0, 0), (-1, 0), 0.5, colors.black),
-             ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
-             ("TOPPADDING", (0, 0), (-1, -1), 3),
-             ("BOTTOMPADDING", (0, 0), (-1, -1), 3)],
-        )
-        story.append(header)
+        if es_recordar:
+            story.append(Paragraph("DESCRIPCIÓN DEL SERVICIO", _desc_head))
+            tipo = formato_recordar.tipo_servicio(cert)
+            story.append(_tabla(
+                [[Paragraph(f"<u>Servicio: {html.escape(tipo)}</u>" if tipo else "", _desc_head), ""]],
+                [("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
+                 ("BOTTOMPADDING", (0, 0), (-1, -1), 3)],
+            ))
+        else:
+            header = _tabla(
+                [[Paragraph("SERVICIOS UTILIZADOS", _th), Paragraph("VALOR", _th_r)]],
+                [("LINEABOVE", (0, 0), (-1, 0), 0.5, colors.black),
+                 ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
+                 ("TOPPADDING", (0, 0), (-1, -1), 3),
+                 ("BOTTOMPADDING", (0, 0), (-1, -1), 3)],
+            )
+            story.append(header)
 
         ancho_punto = stringWidth(".", _R, 10)
 
@@ -519,7 +558,13 @@ def build_certificate_pdf(
             return _tabla([[Paragraph(texto + _puntos(nombre, fuente), _svc),
                             Paragraph(val_str, _svc_rb if negrilla else _svc_r)]])
 
-        if grupos:
+        if grupos and es_recordar:
+            for fila in formato_recordar.filas(grupos):
+                if fila.tipo == "espacio":
+                    story.append(Spacer(1, 8))
+                else:
+                    story.append(_row(fila.nombre, fila.valor, negrilla=fila.tipo != "linea"))
+        elif grupos:
             for g in grupos:
                 if g.get("titulo"):
                     story.append(_row(g["titulo"], g["valor"], negrilla=True))
@@ -545,8 +590,9 @@ def build_certificate_pdf(
 
         if cert.valor_total:
             palabras = _numero_a_palabras(cert.valor_total)
+            etiqueta = "Son:" if es_recordar else "TOTAL:"
             story.append(Paragraph(
-                f"TOTAL: {palabras} PESOS M/L ($ {_formato_cop(cert.valor_total)})",
+                f"{etiqueta} {palabras} PESOS M/L ($ {_formato_cop(cert.valor_total)})",
                 _total,
             ))
 
@@ -571,7 +617,23 @@ def build_certificate_pdf(
         footer_text += f" Recibo de caja N° {html.escape(cert.numero_recibo_caja)}"
     story.append(Paragraph(footer_text, _footer_p))
 
-    # ── Signature block (+ sello de cancelado para RECORDAR) ─────────────────
+    # ── RECORDAR: TITULAR / BENEFICIARIO / PFG Por, antes de las firmas ──────
+    if es_recordar:
+        bloque_tit = [[Paragraph(f"{html.escape(k)} {html.escape(v)}", _titular)]
+                      for k, v in formato_recordar.bloque_titular(cert)]
+        if bloque_tit:
+            t = Table(bloque_tit, colWidths=[content_width])
+            t.setStyle(TableStyle([
+                ("LINEABOVE", (0, 0), (-1, 0), 0.5, colors.black),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                ("TOPPADDING", (0, 0), (-1, 0), 4),
+            ]))
+            story.append(t)
+
+    # ── Signature block (+ sello de cancelado según Configuración) ───────────
     imagenes = imagenes or {}
     story.append(Spacer(1, 7.5))
     firma: list = []
@@ -581,7 +643,7 @@ def build_certificate_pdf(
     firma.append(Paragraph(html.escape(signer_cargo or "Administrador de Ciudad"), _sig_role))
     firma.append(Paragraph(fecha_firma(cert), _sig_role))
 
-    if lleva_sello_cancelado(cert):
+    if lleva_sello_cancelado(cert, formato.sello_tipos):
         sello_img = _imagen(imagenes.get("sello_cancelado"), _SELLO, 5 * cm, 2.2 * cm)
         if sello_img is not None:
             sello_img.hAlign = "CENTER"
