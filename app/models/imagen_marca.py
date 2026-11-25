@@ -9,7 +9,7 @@ from app.db.base import Base
 class ImagenMarca(Base):
     """Imágenes que el admin carga en Configuración (sello, membrete, firma).
 
-    Se guardan en la BD porque el disco de Render se borra en cada despliegue.
+    Se guardan en la BD porque en Vercel el disco es de solo lectura y no persiste.
     """
 
     __tablename__ = "imagenes_marca"

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     SESSION_COOKIE_NAME: str = "clara_session"
     SESSION_LIFETIME_MINUTES: int = 720
 
-    # Gmail API (OAuth2) — usa HTTPS, funciona en Render free tier
+    # Gmail API (OAuth2) por HTTPS
     GMAIL_SENDER: str = ""         # tu correo Gmail (ej: andres@gmail.com)
     GMAIL_CLIENT_ID: str = ""
     GMAIL_CLIENT_SECRET: str = ""
