@@ -175,3 +175,31 @@ def test_solicitud_antigua_sin_tipo_se_deduce_de_la_empresa():
     assert not lleva_sello_cancelado(
         _cert_recordar(empresa="PARQUES Y FUNERARIAS", tipo_certificado=None)
     )
+
+
+# ── Sello sin fecha y fecha en letras debajo (novedades 11 y 13) ────────────
+
+def _aprobado_el(d: date, **kw):
+    from datetime import datetime, timezone
+    return _cert_recordar(reviewed_at=datetime(d.year, d.month, d.day, 17, tzinfo=timezone.utc), **kw)
+
+
+def test_fecha_sello_en_letras():
+    from app.services.pdf_service import fecha_sello
+
+    assert fecha_sello(_aprobado_el(date(2026, 10, 30)), "Barranquilla") == \
+        "Barranquilla, octubre 30 de 2026"
+    assert fecha_sello(_aprobado_el(date(2026, 9, 3)), "Soledad") == "Soledad, septiembre 3 de 2026"
+
+
+def test_pdf_lleva_fecha_en_letras_bajo_el_sello_y_no_dd_mm_aaaa():
+    texto = _texto_pdf(_aprobado_el(date(2026, 11, 23)))
+    assert "Barranquilla, noviembre 23 de 2026" in texto
+    assert "23/11/2026" not in texto  # antes salía debajo del sello
+    assert "23/10/2026" in texto  # la fecha de solicitud debajo de la firma no cambia
+
+
+def test_sin_sello_no_hay_fecha_en_letras():
+    cert = _aprobado_el(date(2026, 11, 23), empresa="PARQUES Y FUNERARIAS",
+                        tipo_certificado=TIPO_FACTURA)
+    assert "Barranquilla, noviembre 23 de 2026" not in _texto_pdf(cert)
